@@ -28,6 +28,12 @@ class CandidateGroup():
 		self.pep = pep
 		self.data = data
 
+	def __str__(self):
+		return f"CandidateGroup(group={self.group}, pep={self.pep}, data={self.data})"
+
+	def __repr__(self):
+		return self.__str__()
+
 	def to_dict(self):
 		"""
 		Converts self into a dictionary for saving as JSON.
@@ -42,9 +48,9 @@ class CandidateGroup():
 				out[key] = self.data[key]
 		return out
 
-def fast_sequential_groups(
+def sequential_groups(
 		inclusions, 
-		q,
+		q=0,
 		max_pep=1,
 		max_size=25,
 		prenarrow=True
@@ -57,8 +63,7 @@ def fast_sequential_groups(
 	----------
 	inclusions : np.ndarray
 		An ``(N, p)``-shaped array of posterior samples,
-		where a zero value indicates that the null
-		hypothesis is true. 
+		where a nonzero value indicates the presence of a signal.
 	q : float
 		The nominal level at which to control the error rate.
 	max_pep : float
@@ -68,7 +73,7 @@ def fast_sequential_groups(
 		Maximum size of a group. Default is 25.
 	prenarrow : bool
 		If true, "prenarrows" the candidate groups
-		as described in the paper.
+		as described in the paper. Defaults to True.
 	"""
 	inclusions = inclusions != 0 # make boolean
 	N = inclusions.shape[0]
@@ -108,7 +113,7 @@ def fast_sequential_groups(
 				np.where(all_PEPs[m] < q)[0].tolist()
 			))
 
-	# Step 3: create nodes (will be updated)
+	# Step 3: create candidate groups
 	cand_groups = []
 	for m in range(max_size):
 		for ind in active_inds[m]:
@@ -157,19 +162,30 @@ def _dist_matrix_to_groups(
 		all_groups = _dedup_list_of_lists(all_groups)
 	return all_groups
 
-def tree_groups_posterior(
+def hierarchical_groups(
 	inclusions,
 	dist_matrix=None,
-	max_pep=0.25,
+	max_pep=1,
 	max_size=25,
 	filter_sequential=False,
 ):
 	"""
 	Parameters
 	----------
+	inclusions : np.ndarray
+		An ``(N, p)``-shaped array of posterior samples,
+		where a nonzero value indicates the presence of a signal.
+	dist_matrix : np.ndarray
+		square numpy array corresponding to distances between locations.
+		This is used to hierarchically cluster the groups.
+	max_pep : float
+		The maximum posterior error probability allowed in
+		a candidate group. Default is 1.
+	max_size : float
+		Maximum size of a group. Default is 25.
 	filter_sequential : bool
 		If True, does not calculate PEPs for sequential (contiguous)
-		groups of variables.
+		groups of variables to avoid duplicates.
 	"""
 	# Initial values
 	p = inclusions.shape[1]
@@ -195,7 +211,7 @@ def tree_groups_posterior(
 
 	# Create groups
 	groups = _dist_matrix_to_groups(dist_matrix)
-	# Create nodes
+	# Create candidate group objects
 	cand_groups = []
 	for group in groups:
 		gsize = len(group)
@@ -211,7 +227,7 @@ def tree_groups_posterior(
 		pep = 1 - np.any(inclusions[:, group], axis=1).mean()
 		if pep < max_pep:
 			cand_groups.append(
-				CandidateGroup(group=group, pep=pep)
+				CandidateGroup(group=set(group), pep=pep)
 			)
 
 	return cand_groups
@@ -252,9 +268,9 @@ def _elim_redundant_features(cand_groups):
 		orig2new[j] = i
 	for cand_group in cand_groups:
 		group = [orig2new[x] for x in cand_group.group]
-		node.data['blip-group'] = set(group)
+		cand_group.data['blip-group'] = set(group)
 	# return
-	return nodes, nrel
+	return cand_groups, nrel
 
 
 
