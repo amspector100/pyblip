@@ -19,9 +19,6 @@ class CheckCandGroups(unittest.TestCase):
 			f"groups={groups} appears to contain duplicates with len(dedup_groups)={len(dedup_groups)}"
 		)
 
-
-
-
 class TestCandGroups(CheckCandGroups):
 	"""
 	Tests creation of candidate groups when the set of locations
@@ -126,92 +123,94 @@ class TestCandGroups(CheckCandGroups):
 
 
 
-# class TestCtsPEPs(unittest.TestCase):
-#     """ Tests sparse bayesian linear reg """
+class TestCtsPEPs(unittest.TestCase):
+	"""
+	Tests creation of candidate groups when the set of locations
+	is continuous.
+	"""
+	def test_create_groups_cts(self):
 
-#     def test_cts_peps(self):
+		# Simple 2d example with 2 discoveries
+		locs = np.array([
+			[[0.5502, 0.4502], [0.3, 0.2]],
+			[[0.549, 0.451], [0.305, 0.201]],
+			[[0.553, 0.456], [-1, -1]]
+		])
+		
+		# Run with one manual center added
+		xc1 = 0.55012
+		yc1 = 0.45012
+		peps = create_groups_cts.grid_peps(
+			locs, 
+			grid_sizes=[10, 100, 1000],
+			extra_centers=np.array([[xc1, yc1]]),
+			log_interval=1, 
+			max_pep=1
+		)
+		# Check PEPs are right
+		pep1 = peps[(0.5, 0.4, 10)]
+		self.assertTrue(
+			pep1 == 0,
+			f"PEP at (0.5, 0.4, 10) should be 0 but is {pep1}"
+		)
+		pep2 = peps[(0.55, 0.45, 100)]
+		np.testing.assert_almost_equal(
+			pep2, 
+			1/3,
+			decimal=5,
+			err_msg=f"PEP at (0.5, 0.4, 100) should be 1/3 but is {pep2}"
+		)
+		pep3 = peps[(0.3, 0.2, 10)]
+		np.testing.assert_almost_equal(
+			pep3,
+			1/3,
+			decimal=5,
+			err_msg=f"PEP at (0.3, 0.2, 10) should be 1/3 but is {pep3}"
+		)
+		pep4 = peps[(np.around(xc1 - 0.05, 8), np.around(yc1 - 0.05, 8), 10)]
+		np.testing.assert_almost_equal(
+			pep4,
+			0,
+			decimal=5,
+			err_msg=f"PEP at {(xc1 - 0.05, yc1 - 0.05, 10)} should be 0 but is {pep4}"
+		)
+		# Compute BLiP nodes
+		all_cgroups, components = create_groups_cts.grid_peps_to_cand_groups(peps, verbose=True)
+		self.assertTrue(
+			len(components) == 1,
+			f"In tiny problem, number of components is {len(components)} > 1."
+		)
 
-#         # Simple 2d example with 2 discoveries
-#         locs = np.array([
-#             [[0.5502, 0.4502], [0.3, 0.2]],
-#             [[0.549, 0.451], [0.305, 0.201]],
-#             [[0.553, 0.456], [-1, -1]]
-#         ])
-        
-#         # Run with one manual center added
-#         xc1 = 0.55012
-#         yc1 = 0.45012
-#         peps = calc_peps_cts.grid_peps(
-#             locs, 
-#             grid_sizes=[10, 100, 1000],
-#             extra_centers=np.array([[xc1, yc1]]),
-#             log_interval=1, 
-#             max_pep=1
-#         )
-#         # Check PEPs are right
-#         pep1 = peps[(0.5, 0.4, 10)]
-#         self.assertTrue(
-#             pep1 == 0,
-#             f"PEP at (0.5, 0.4, 10) should be 0 but is {pep1}"
-#         )
-#         pep2 = peps[(0.55, 0.45, 100)]
-#         np.testing.assert_almost_equal(
-#             pep2, 
-#             1/3,
-#             decimal=5,
-#             err_msg=f"PEP at (0.5, 0.4, 100) should be 1/3 but is {pep2}"
-#         )
-#         pep3 = peps[(0.3, 0.2, 10)]
-#         np.testing.assert_almost_equal(
-#             pep3,
-#             1/3,
-#             decimal=5,
-#             err_msg=f"PEP at (0.3, 0.2, 10) should be 1/3 but is {pep3}"
-#         )
-#         pep4 = peps[(np.around(xc1 - 0.05, 8), np.around(yc1 - 0.05, 8), 10)]
-#         np.testing.assert_almost_equal(
-#             pep4,
-#             0,
-#             decimal=5,
-#             err_msg=f"PEP at {(xc1 - 0.05, yc1 - 0.05, 10)} should be 0 but is {pep4}"
-#         )
-#         # Compute BLiP nodes
-#         all_nodes, components = calc_peps_cts.grid_peps_to_nodes(peps, verbose=True)
-#         self.assertTrue(
-#             len(components) == 1,
-#             f"In tiny problem, number of components is {len(components)} > 1."
-#         )
+		# Check that constraints are enforced
+		cent_flag = False # check that the correct center exists
+		for cand_group1 in all_cgroups[0]:
+			for cand_group2 in all_cgroups[0]:
+				overlap_flag = True
+				rad1 = cand_group1.data['radius']
+				rad2 = cand_group2.data['radius']
+				for j in range(2):
+					if np.abs(cand_group1.data[f'dim{j}'] - cand_group2.data[f'dim{j}']) > rad1 + rad2:
+						overlap_flag = False
+				if overlap_flag:
+					print(cand_group1.data, cand_group2.data)
+					self.assertTrue(
+						len(cand_group1.group.intersection(cand_group2.group)) > 0,
+						f"cand_group1 and cand_group2 should overlap but don't: {cand_group1.data}, {cand_group2.data}"
+					)
+			x1 = np.around(cand_group1.data['dim0'], 5)
+			y1 = np.around(cand_group1.data['dim1'], 5)
+			if x1 == 0.555 and y1 == 0.455:
+				if np.abs(cand_group1.pep - 1/3) < 1e-5:
+					if np.abs(cand_group1.data['radius'] - 0.005) < 1e-5:
+						cent_flag = True
 
-#         # Check that constraints are enforced
-#         cent_flag = False # check that the correct center exists
-#         for node1 in all_nodes[0]:
-#             for node2 in all_nodes[0]:
-#                 overlap_flag = True
-#                 rad1 = node1.data['radius']
-#                 rad2 = node2.data['radius']
-#                 for j in range(2):
-#                     if np.abs(node1.data[f'dim{j}'] - node2.data[f'dim{j}']) > rad1 + rad2:
-#                         overlap_flag = False
-#                 if overlap_flag:
-#                     print(node1.data, node2.data)
-#                     self.assertTrue(
-#                         len(node1.data['group'].intersection(node2.data['group'])) > 0,
-#                         f"node1 and node2 should overlap but don't: {node1.data}, {node2.data}"
-#                     )
-#             x1 = np.around(node1.data['dim0'], 5)
-#             y1 = np.around(node1.data['dim1'], 5)
-#             if x1 == 0.555 and y1 == 0.455:
-#                 if np.abs(node1.data['pep'] - 1/3) < 1e-5:
-#                     if np.abs(node1.data['radius'] - 0.005) < 1e-5:
-#                         cent_flag = True
-
-#         self.assertTrue(
-#             cent_flag,
-#             f'Final nodes are missing a node with the correct center/PEP'
-#         )
+		self.assertTrue(
+			cent_flag,
+			f'Final nodes are missing a node with the correct center/PEP'
+		)
 
 
 
 
 if __name__ == "__main__":
-    unittest.main()
+	unittest.main()
