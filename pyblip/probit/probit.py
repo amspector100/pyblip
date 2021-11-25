@@ -19,7 +19,7 @@ class ProbitSpikeSlab():
 		update_p0=True
 	):
 		self.X = X
-		self.y = y
+		self.y = y.astype(int)
 		self.sigma2 = sigma2
 		self.tau2 = tau2
 		self.p0 = p0

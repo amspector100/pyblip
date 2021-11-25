@@ -10,23 +10,94 @@ from pyblip import linear, probit, nprior
 
 class TestMCMC(unittest.TestCase):
 
-	def test_linear_sparsity_estimation(self):
+	def test_coeff_estimation(self):
 
-		# Sample data
+		# Sample data with high SNR
 		np.random.seed(123)
-		coeff_size = 3
-		X, y, beta = context.generate_regression_data(
-			a=5, b=1, y_dist='linear', p=500, n=100, sparsity=0.05
+		X, y, beta_linear = context.generate_regression_data(
+			a=1, b=1, y_dist='linear', p=100, n=1000, sparsity=0.25, coeff_dist='uniform'
+		)
+		# Probit data
+		Xp, yp, beta_probit = context.generate_regression_data(
+			a=0.1, b=1, y_dist='probit', p=50, n=1000, sparsity=0.25, coeff_dist='uniform'
 		)
 
-		# Fit linear model
-		lm = pyblip.linear.LinearSpikeSlab(X=X, y=y)
-		lm.sample(N=500, chains=5)
+		# Initialize models models
+		lm = pyblip.linear.LinearSpikeSlab(X=X, y=y)#, p0=0.25, update_p0=False)
 		nlm = pyblip.nprior.NPrior(X=X, y=y, tauw2=1)
-		nlm.sample(N=500, chains=5)
-		print(lm.betas.shape)
-		print(nlm.betas.shape)
-		raise ValueError()
+		probit = pyblip.probit.ProbitSpikeSlab(X=Xp, y=yp)
+		for name, model, beta in zip(
+			['linspikeslab', 'nprior', 'probitspikeslab'],
+			[lm, nlm, probit],
+			[beta_linear, beta_linear, beta_probit],
+		):
+			model.sample(N=1500, chains=1, burn=500)
+			# Test inclusions
+			pips = (model.betas != 0).mean(axis=0)
+			m_nn_pip = np.min(pips[beta != 0])
+			self.assertTrue(
+				m_nn_pip > 0.9,
+				f"With n >= 10 p, min non-null PIP is {m_nn_pip} > 0.9 for {name}"
+			)
+			# Test estimation of beta for linear models
+			# (all are slightly misspecified and this makes a difference for probit)
+			if name != 'probitspikeslab':
+				hatbeta = model.betas.mean(axis=0)
+				hatbeta_nn = hatbeta[beta != 0]
+				hatbeta_null = hatbeta[beta == 0]
+				np.testing.assert_almost_equal(
+					np.power(hatbeta_nn, 2).mean(),
+					np.power(beta[beta != 0], 2).mean(),
+					decimal=2,
+					err_msg=f"Average l2 norm of non-null est vs. true values differs for {name}"
+				)
+				np.testing.assert_almost_equal(
+					np.power(hatbeta_null, 2).mean(),
+					0,
+					decimal=1,
+					err_msg=f"Average l2 norm of null coeffs is too large"
+				)
+
+	# def test_probit_estimation(self):
+
+	# 	# Sample data with high SNR
+	# 	np.random.seed(123)
+	# 	X, y, beta = context.generate_regression_data(
+	# 		a=1, b=1, y_dist='probit', p=50, n=1000, sparsity=0.25, coeff_dist='uniform'
+	# 	)
+
+	# 	# Fit probit model
+	# 	probit = pyblip.probit.ProbitSpikeSlab(X=X, y=y)
+	# 	probit.sample(N=1000, burn=200, chains=1)
+
+	# def test_linear_sparsity_estimation(self):
+
+	# 	# Sample data
+	# 	np.random.seed(123)
+	# 	N = 200
+	# 	chains = 5
+	# 	coeff_size = 1
+	# 	for sparsity in [0.01, 0.05]:
+	# 		X, y, beta = context.generate_regression_data(
+	# 			a=5, b=1, y_dist='linear', p=500, n=200, sparsity=sparsity,
+	# 			coeff_size=coeff_size, coeff_dist='normal'
+	# 		)
+
+	# 		# Fit linear model
+	# 		p0 = 1 - sparsity
+	# 		lm = pyblip.linear.LinearSpikeSlab(X=X, y=y)
+	# 		lm.sample(N=N, chains=chains)
+	# 		self.assertTrue(
+	# 			np.abs(np.mean(lm.p0s) - p0) < 0.1,
+	# 			f"Est p0 for linspikeslab is {np.mean(lm.p0s)}, true p0={p0}"
+	# 		)
+	# 		nlm = pyblip.nprior.NPrior(X=X, y=y, tauw2=1)
+	# 		nlm.sample(N=N, chains=chains)
+
+	# 		self.assertTrue(
+	# 			np.abs(np.mean(nlm.p0s) - p0) < 0.1,
+	# 			f"Est p0 for nprior is {np.mean(nlm.p0s)}, true p0={p0}"
+	# 		)
 
 if __name__ == "__main__":
 	unittest.main()

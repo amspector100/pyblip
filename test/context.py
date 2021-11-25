@@ -42,9 +42,12 @@ def generate_regression_data(
 	# Create sparse coefficients,
 	beta = np.zeros(p)
 	k = np.around(sparsity * p).astype(int)
-	nonnull_coefs = np.sqrt(coeff_size) * np.random.randn(k)
+	if coeff_dist == 'normal':
+		nonnull_coefs = np.sqrt(coeff_size) * np.random.randn(k)
+	else:
+		nonnull_coefs = coeff_size * np.random.uniform(1/2, 1, size=k)
+		nonnull_coefs *= (1 - 2*np.random.binomial(1, 0.5, size=k))
 	beta[np.random.choice(np.arange(p), k, replace=False)] = nonnull_coefs
-	print(np.mean(beta != 0), sparsity, p)
 
 	# Create Y
 	mu = np.dot(X, beta)
