@@ -152,13 +152,11 @@ class TestBLiP(CheckDetections):
 		X, y, beta = context.generate_regression_data(
 			a=5, b=1, y_dist='linear', p=500, n=100, sparsity=0.05
 		)
-		print(np.where(beta != 0))
 
 		# Fit linear model
 		lm = pyblip.linear.LinearSpikeSlab(X=X, y=y)
 		lm.sample(N=500, chains=5)
 		inclusions = lm.betas != 0
-		print(np.mean(inclusions, axis=0))
 
 		# Test FDR, FWER, PFER, local FDR control.
 		# Note this just test that the Bayesian FDR is controlled

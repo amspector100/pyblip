@@ -128,13 +128,55 @@ class TestCtsPEPs(unittest.TestCase):
 	Tests creation of candidate groups when the set of locations
 	is continuous.
 	"""
+	def test_normalize_locs(self):
+		# Create unnormalized locs
+		N = 100
+		n_disc = 10
+		d = 5
+		locs = np.random.randn(N, n_disc, d)
+		locs[12, 5, :] = np.nan
+
+		# Normalize
+		norm_locs, shifts, scales = create_groups_cts.normalize_locs(locs)
+
+		# Test NANs / max / min values
+		self.assertTrue(
+			np.all(np.isnan(norm_locs[np.isnan(locs)])),
+			f"norm_locs is not always nan where locs is nan"
+		)
+		self.assertTrue(
+			np.all(~np.isnan(norm_locs[~np.isnan(locs)])),
+			f"norm_locs is sometimes nan where locs is not"
+		)
+		np.testing.assert_almost_equal(
+			np.nanmin(norm_locs),
+			0,
+			decimal=6,
+			err_msg=f"Min of norm_locs is {np.nanmin(norm_locs)} != 0"
+		)
+		np.testing.assert_almost_equal(
+			np.nanmax(norm_locs),
+			1,
+			decimal=6,
+			err_msg=f"Max of norm_locs is {np.nanmax(norm_locs)} != 1"
+		)
+
+		# Test that we can recreate original locs
+		np.testing.assert_array_almost_equal(
+			norm_locs * scales +  shifts,
+			locs,
+			decimal=6,
+			err_msg=f"Cannot recreate locs from norm_locs"
+		)
+
+
 	def test_create_groups_cts(self):
 
 		# Simple 2d example with 2 discoveries
 		locs = np.array([
 			[[0.5502, 0.4502], [0.3, 0.2]],
 			[[0.549, 0.451], [0.305, 0.201]],
-			[[0.553, 0.456], [-1, -1]]
+			[[0.553, 0.456], [np.nan, np.nan]]
 		])
 		
 		# Run with one manual center added

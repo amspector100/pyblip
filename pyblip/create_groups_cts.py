@@ -12,6 +12,36 @@ from .utilities import elapsed
 from .create_groups import CandidateGroup
 from . import create_groups
 
+def normalize_locs(locs):
+	"""
+	Paramters
+	---------
+	locs : np.array
+		A (N, num_disc, d)-dimensional array. Here, N is the
+		number of samples from the posterior, d is the number
+		of dimensions of the space, and each point corresponds
+		to a signal in a particular posterior sample.
+
+	Returns
+	-------
+	locs : np.array
+		locs, but normalized such that all values lie in [0,1].
+		NAs are converted to -1.
+	shifts : np.array
+		``d``-dimensional array corresponding to the shifts applied
+		in the normalizatin. 
+	scales : np.array
+		``d``-dimension array corresponding to the scales in the 
+		normalization.
+	"""
+	min_val = np.nanmin(np.nanmin(locs, axis=0), axis=0)
+	max_val = np.nanmax(np.nanmax(locs, axis=0), axis=0)
+	shifts = min_val
+	scales = max_val - min_val
+	norm_locs = (locs - shifts) / scales
+	return norm_locs, shifts, scales
+
+
 def grid_peps(
 	locs,
 	grid_sizes,
@@ -23,18 +53,13 @@ def grid_peps(
 	"""
 	Parameters
 	----------
-	locs : np.ndarray
+	locs : np.array
 		A (N, num_disc, d)-dimensional array. Here, N is the
 		number of samples from the posterior, d is the number
 		of dimensions of the space, and each point corresponds
-		to a discovery in a particular posterior sample. 
-
-		NOTE: all values must be between 0 and 1, or othwerise exactly
-		equal -1 (these correspond to ``dummy discoveries"). 
-
+		to a signal in a particular posterior sample. 
 	grid_sizes : list or np.ndarray
 		List of grid-sizes to split up the locations.
-	
 	extra_centers : np.ndarray
 		A (ncenters, d)-dimensional array. At each resolution,
 		a candidate groups will be computed with centers at these
@@ -48,7 +73,12 @@ def grid_peps(
 	if time0 is None:
 		time0 = time.time()
 
-	# Create PIps
+	if np.nanmin(locs) < -1e10 or np.nanmax(locs) > 1 + 1e-10:
+		raise ValueError(
+			f"locs are not normalized: apply create_groups_cts.normalize_locs first."
+		)
+
+	# Create PIPs
 	pips = dict()
 	N = locs.shape[0]
 	ndisc = locs.shape[1]
@@ -58,7 +88,7 @@ def grid_peps(
 
 	for j in range(N):
 		# Ignore dummy discoveries
-		active = ~np.any(locs[j] < 0, axis=1)
+		active = ~np.any(np.isnan(locs[j]), axis=1)
 		samples = locs[j, active]
 		# Loop through grid sizes and find centers
 		for gsize in grid_sizes:
@@ -157,7 +187,7 @@ def grid_peps_to_cand_groups(
 		corners = np.array([k[j] for k in keys])
 		centers[j] = corners + radii
 		if centers[j].max() > 1 or centers[j].min() < 0:
-			print(centers[j], corners, radii, keys)
+			print(f"{centers[j].max()}, {centers[j].min()}")
 			raise ValueError("centers must be between 0 and 1 but this is not true")
 		# Find overlaps and add to constraints
 		constraints = constraints & calculate_overlaps(centers[j], radii)

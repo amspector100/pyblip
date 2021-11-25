@@ -63,7 +63,8 @@ def BLiP(
 		A function which takes a CandidateGroup as an input and
 		returns a (nonnegative) weight as an output. This defines
 		the expected power function. Alternatively, can be
-		'inverse_size' or 'log_inverse_size'.
+		'inverse_size' or 'log_inverse_size'. Defaults to
+		'inverse_size'.
 	error : string
 		The type of error rate to control. Must be one of 
 		'fdr', 'local_fdr', 'fwer', or 'pfer'.
@@ -88,6 +89,12 @@ def BLiP(
 		to "binary". 
 	perturb : bool
 		If True, will perturb the weight function 
+
+	Returns
+	-------
+	detections : list
+		A list of CandidateGroups consisting of the detected signals
+		and the regions containing them.
 	"""
 	# Parse arguments
 	time0 = time.time()
@@ -248,8 +255,8 @@ def BLiP(
 		else:
 			selections = x.value
 
-		# TODO could do something smarter for FWER
-		if error == 'fwer':
+		# TODO could do something smarter for FWER bin search
+		if error == 'fwer' and binary_search:
 			selections = np.around(selections)
 
 	for cand_group, sprob, weight in zip(cand_groups, selections, weights):
@@ -263,6 +270,81 @@ def BLiP(
 		error=error,
 		how_binarize=how_binarize
 	)
+
+def BLiP_cts(
+	locs,
+	grid_sizes,
+	weight_fn=weight_fns.inverse_radius_weight,
+	max_pep=0.25,
+	max_blip_size=1500,
+	**kwargs
+):
+	"""
+	BLiP when the set of locations is continuous, e.g. when
+	working with image data.
+
+	Parameters
+	----------
+	locs : np.ndarray
+		A (N, num_disc, d)-dimensional array. Here, N is the
+		number of samples from the posterior, d is the number
+		of dimensions of the space, and each point corresponds
+		to a signal in a particular posterior sample. NANs do not
+		count as signals (this is useful in case there are different
+		numbers of signals at each posterior iteration.)
+	grid_sizes : list or np.ndarray
+		List of grid-sizes to split up the locations.
+	weight_fn : string or function
+			A function which takes a CandidateGroup as an input and
+			returns a (nonnegative) weight as an output. This defines
+			the expected power function. Alternatively, can be
+			'inverse_size' or 'log_inverse_size'. Defaults to
+			'inverse_size'.
+	kwargs : dict
+		Additional arguments to pass to the underlying BLiP call.
+
+	Returns
+	-------
+	detections : list
+		A list of CandidateGroups consisting of the detected signals
+		and the regions containing them.
+	"""
+
+	# Normalize locations
+	norm_locs, shifts, scales = create_groups_cts.normalize_locs(locs)
+
+	# 1. Calculate filtered PEPs
+	peps = create_groups_cts.grid_peps(
+		locs=norm_locs, grid_sizes=grid_sizes, max_pep=max_pep
+	)
+
+	# 2. Calculate nodes, components, and so on
+	all_cand_groups, _ = create_groups_cts.grid_peps_to_cand_groups(
+		peps, max_blip_size=max_blip_size
+	)
+
+	# 3. Run BLiP
+	all_rej = []
+	for i, cand_groups in enumerate(all_cand_groups):
+		rej = BLiP(
+			cand_groups=cand_groups,
+			weiht_fn=weight_fn,
+			max_pep=max_pep,
+			**kwargs,
+		)
+		all_rej.extend(rej)
+
+	# 4. Renormalize locations
+	d = locs.shape[2] # dimensionality
+	for cand_group in all_rej:
+		center = np.zeros(d)
+		radius = cand_group.data['radius'] * scales + shifts
+		for k in range(d):
+			center[k] = cand_group.data.pop(f'dim{k}') * scales[k] + shifts[k]
+		cand_group.data['center'] = center
+		cand_group.data['radii'] = radius
+
+	return all_rej
 
 
 def binarize_selections(
