@@ -13,6 +13,9 @@ cimport scipy.linalg.cython_lapack as lapack
 from libc.stdlib cimport rand, RAND_MAX
 from libc.math cimport log, exp, fabs, sqrt, fmax, erfc
 
+# Fast uniform sampling
+from ..cython_utils._truncnorm import random_uniform
+
 # Blas commonly used parameters
 cdef double zero = 0, one = 1, neg1 = -1
 cdef int inc_0 = 0;
@@ -22,12 +25,6 @@ cdef char* trans_n = 'N'
 cdef char* triang_u = 'U'
 cdef char* triang_l = 'L'
 cdef double M_SQRT1_2 = sqrt(0.5)
-
-@cython.nonecheck(False)
-@cython.cdivision(True)
-cdef double random_uniform():
-	cdef double r = rand()
-	return r / RAND_MAX
 
 @cython.wraparound(False)
 @cython.boundscheck(False)

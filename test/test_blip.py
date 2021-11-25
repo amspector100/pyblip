@@ -8,7 +8,6 @@ from . import context
 from .context import pyblip
 from pyblip import blip, create_groups
 from pyblip.create_groups import CandidateGroup
-from knockpy import dgp
 
 class CheckDetections(unittest.TestCase):
 	"""

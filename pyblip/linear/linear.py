@@ -3,7 +3,7 @@ import numpy as np
 import scipy as sp
 from scipy import linalg
 from scipy import stats
-from knockpy.utilities import apply_pool
+from knockpy.utilities import apply_pool ## get rid of this, deal with it later
 
 from ._linear import _sample_linear_spikeslab
 
