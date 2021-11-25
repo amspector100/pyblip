@@ -12,12 +12,6 @@ from .utilities import elapsed
 from .create_groups import CandidateGroup
 from . import create_groups
 
-def inverse_radius_weight(cand_group):
-	return (1 - cand_group.pep) / cand_group.data['radius']
-
-def inverse_area_weight(cand_group):
-	return (1 - cand_group.pep) / (cand_group.data['radius']**2)
-
 def grid_peps(
 	locs,
 	grid_sizes,

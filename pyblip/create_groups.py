@@ -1,4 +1,5 @@
 """ Functions for creating candidate groups from posterior samples"""
+import copy
 import numpy as np
 from tqdm import tqdm
 # Tree methods from scipy
@@ -23,9 +24,11 @@ class CandidateGroup():
 	Notes: The class attributes are the same as the parameters
 	(group, pep, and data).
 	"""
-	def __init__(self, group, pep, data=dict()):
-		self.group = group
+	def __init__(self, group, pep, data=None):
+		self.group = set(group)
 		self.pep = pep
+		if data is None:
+			data = dict()
 		self.data = data
 
 	def __str__(self):
@@ -49,12 +52,12 @@ class CandidateGroup():
 		return out
 
 def sequential_groups(
-		inclusions, 
-		q=0,
-		max_pep=1,
-		max_size=25,
-		prenarrow=True
-	):
+	inclusions, 
+	q=0,
+	max_pep=1,
+	max_size=25,
+	prenarrow=True
+):
 	"""
 	Calculate peps for all sequential groups 
 	of size less than max_size.
@@ -233,6 +236,17 @@ def hierarchical_groups(
 	return cand_groups
 
 
+
+def _prefilter(cand_groups, max_pep):
+	"""
+	Returns the subset of cand_groups with a pep below max_pep.
+	"""
+	return [
+		x for x in cand_groups if x.pep < max_pep
+	]
+
+
+
 def _elim_redundant_features(cand_groups):
 	"""
 	After prefiltering groups, some features/locations may not
@@ -267,8 +281,9 @@ def _elim_redundant_features(cand_groups):
 		new2orig[i] = j
 		orig2new[j] = i
 	for cand_group in cand_groups:
-		group = [orig2new[x] for x in cand_group.group]
-		cand_group.data['blip-group'] = set(group)
+		blip_group = [orig2new[x] for x in cand_group.group]
+		cand_group.data['blip-group'] = set(blip_group)
+
 	# return
 	return cand_groups, nrel
 
