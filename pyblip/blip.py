@@ -63,8 +63,10 @@ def BLiP(
 		A function which takes a CandidateGroup as an input and
 		returns a (nonnegative) weight as an output. This defines
 		the expected power function. Alternatively, can be
-		'inverse_size' or 'log_inverse_size'. Defaults to
-		'inverse_size'.
+		'inverse_size', 'log_inverse_size', or 'prespecified', 
+		in which case each cand_group must have a weight key
+		in its data dictionary. 
+		Defaults to 'inverse_size'.
 	error : string
 		The type of error rate to control. Must be one of 
 		'fdr', 'local_fdr', 'fwer', or 'pfer'.
@@ -132,12 +134,17 @@ def BLiP(
 
 	# Weights for each candidate group
 	ngroups = len(cand_groups)
-	if isinstance(weight_fn, str):
-		weight_fn = weight_fn.lower()
-		if weight_fn not in WEIGHT_FNS:
-			raise ValueError(f"Unrecognized weight_fn={weight_fn}, must be one of {list(WEIGHT_FNS.keys())}")
-		weight_fn = WEIGHT_FNS[weight_fn]
-	weights = np.array([weight_fn(x) for x in cand_groups])
+	if weight_fn == 'prespecified':
+		weights = np.array([x.data['weight'] for x in cand_groups])
+	else:
+		if isinstance(weight_fn, str):
+			weight_fn = weight_fn.lower()
+			if weight_fn not in WEIGHT_FNS:
+				raise ValueError(f"Unrecognized weight_fn={weight_fn}, must be one of {list(WEIGHT_FNS.keys())}")
+			weight_fn = WEIGHT_FNS[weight_fn]
+		# Get weights
+		weights = np.array([weight_fn(x) for x in cand_groups])
+
 	# perturb to avoid degeneracy in some cases
 	if perturb:
 		weights = np.array([
@@ -173,9 +180,9 @@ def BLiP(
 		binary_search = False
 	if binary_search:
 		# upper bnd in binary search (e.g., min val not controlling FWER)
-		v_upper = np.around(q * nrel)
+		v_upper = q * nrel
 		# lower bnd in binary search (e.g., max val not controlling FDR)
-		v_lower = q	if error == 'fdr' else 0
+		v_lower = 0
 		v_current_cp.value = (v_upper + v_lower)/2
 	else:
 		v_current_cp.value = q
@@ -244,7 +251,7 @@ def BLiP(
 				else:
 				 	v_lower = v_current
 			# Possibly break
-			if v_upper - v_lower < 1e-3:
+			if v_upper - v_lower < 1e-4:
 				break
 
 		# Solve with v_lower for final solution

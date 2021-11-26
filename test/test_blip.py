@@ -141,7 +141,6 @@ class TestBinarizeSelections(CheckDetections):
 					all_detections.append(detections)
 				self.check_pfer_control(all_detections, v=v + 0.25 / np.sqrt(reps))
 
-
 class TestBLiP(CheckDetections):
 
 	def test_blip_regression(self):
@@ -192,6 +191,29 @@ class TestBLiP(CheckDetections):
 			)
 			self.check_disjoint(detections)
 			self.check_pfer_control(detections, v=q)
+
+
+	def test_fdr_good_soln(self):
+		# Cand groups created to be adversarially tricky
+		cand_groups = [
+			CandidateGroup(group=[0,], pep=0.05, data=dict(weight=1)),
+			CandidateGroup(group=[1], pep=0.1, data=dict(weight=1)),
+			CandidateGroup(group=[2], pep=0.05, data=dict(weight=1/100)),
+			CandidateGroup(group=[3],pep=0.05, data=dict(weight=1/200))
+		]
+		# FDR
+		detections = pyblip.blip.BLiP(
+			cand_groups=cand_groups,
+			error='fdr',
+			weight_fn='prespecified',
+			q=0.05 + 1e-3
+		)
+		print(detections)
+		groups = set([tuple(x.group) for x in detections])
+		expected = set([(0,), (2,), (3,)])
+		self.assertEqual(
+			groups, expected, f"FDR solution for adversarial example is wrong"
+		)
 
 if __name__ == "__main__":
 	unittest.main()
