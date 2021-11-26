@@ -3,12 +3,12 @@ from Cython.Build import cythonize
 from distutils.extension import Extension
 
 ext_modules = [
-	# Extension(
-	# 	"pyblip.cython_utils._truncnorm",
-	# 	sources=["pyblip/cython_utils/_truncnorm.pyx"],
-	# 	libraries=["m"],  # Unix-like specific
-	# 	extra_compile_args = ["-ffast-math"]
-	# ),
+	Extension(
+		"pyblip.cython_utils._truncnorm",
+		sources=["pyblip/cython_utils/_truncnorm.pyx"],
+		libraries=["m"],  # Unix-like specific
+		extra_compile_args = ["-ffast-math"]
+	),
 	Extension(
 		"pyblip.linear._linear",
 		sources=["pyblip/linear/_linear.pyx"],
