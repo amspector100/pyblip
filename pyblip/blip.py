@@ -33,8 +33,10 @@ def _solve_prob_at_v(problem, x, v_current, v_current_cp, ngroups, solver):
 	# Solve
 	problem.solve(solver=solver, warm_start=True)
 	# Check for infeasibility
-	if problem.status == 'infeasible':
+	if problem.status == 'infeasible' or problem.status == 'infeasible_inaccurate':
 		selections = np.zeros(ngroups)
+	elif x.value is None:
+		raise ValueError(f"No solution for v={v_current}, problem status {problem.status}")
 	else:
 		selections = x.value
 	return selections
