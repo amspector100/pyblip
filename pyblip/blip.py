@@ -19,12 +19,46 @@ else:
 	warnings.warn("Using default (slightly slower) solver ECOS")
 	DEFAULT_SOLVER = 'ECOS'
 
+UNIMODAL_WARNING = "Loss is not unimodal in v, so result is only approximately optimal."
 WEIGHT_FNS = {
 	'inverse_size':weight_fns.inverse_size,
 	'log_inverse_size':weight_fns.log_inverse_size,
 }
 ERROR_OPTIONS = ['fdr', 'local_fdr', 'fwer', 'pfer']
 BINARY_TOL = 1e-3
+
+
+def _solve_prob_at_v(problem, x, v_current, v_current_cp, ngroups):
+	# Reset parameter in cvxpy problem
+	v_current_cp.value = v_current
+	# Solve
+	problem.solve(solver=DEFAULT_SOLVER, warm_start=True)
+	# Check for infeasibility
+	if problem.status == 'infeasible':
+		selections = np.zeros(ngroups)
+	else:
+		selections = x.value
+	return selections
+
+def _check_unimodality(
+	power_lower,
+	power_tl,
+	power_tu, 
+	power_upper,
+):
+	mid_diff = power_tu - power_tl
+	if mid_diff > 0 and power_lower > power_tl:
+		eps = min(mid_diff, power_lower - power_tl)
+	elif mid_diff < 0 and power_upper > power_tu:
+		eps = min(-1*mid_diff, power_upper - power_tu)
+	else:
+		eps = 0
+	if eps > 1e-1:
+		warnings.warn(
+			f"Unimodal approximation is inaccurate (eps={eps}), so result is only approximately optimal."
+		)
+		return True
+	return False
 
 def BLiP(
 	inclusions=None,
@@ -35,8 +69,8 @@ def BLiP(
 	max_pep=0.5,
 	how_binarize='sample',
 	verbose=True,
-	perturb=False,
-	max_iters=50,
+	perturb=True,
+	max_iters=100,
 	search_method='binary',
 	**kwargs
 ):
@@ -137,6 +171,10 @@ def BLiP(
 	if weight_fn == 'prespecified':
 		weights = np.array([x.data['weight'] for x in cand_groups])
 	else:
+		if 'weight' in cand_groups[0].data:
+			warnings.warn(
+				"Cand groups have a 'weight' attribute, do you mean to set weight_fn='prespecified'?"
+			)
 		if isinstance(weight_fn, str):
 			weight_fn = weight_fn.lower()
 			if weight_fn not in WEIGHT_FNS:
@@ -180,7 +218,7 @@ def BLiP(
 		binary_search = False
 	if binary_search:
 		# upper bnd in binary search (e.g., min val not controlling FWER)
-		v_upper = q * nrel
+		v_upper = q * nrel + 1
 		# lower bnd in binary search (e.g., max val not controlling FDR)
 		v_lower = 0
 		v_current_cp.value = (v_upper + v_lower)/2
@@ -213,31 +251,54 @@ def BLiP(
 
 	# Solve FWER/FDR through binary search
 	elif binary_search:
-		power_lower = 0 # for FDR control only
-		problem.solve(solver=DEFAULT_SOLVER, warm_start=True)
+		uni_warning_issued = False # only issue the warning once
+		power_lower = 0 
+		power_upper = 0
 		inclusions = inclusions != 0
 		for niter in range(max_iters):
-			
-			# Change parametrized constraint
-			v_current = (v_upper + v_lower)/2
-			v_current_cp.value = v_current 
-
-			# Solve
-			problem.solve(solver=DEFAULT_SOLVER, warm_start=True)
-			selections = x.value
-
-			# Binary search
+			# FDR search
 			if error == 'fdr':
-				if problem.status == 'infeasible':
-					power = 0
+				# Test at two points to determine slope
+				# lower point
+				v_tl = 3 * v_lower / 4 + v_upper / 4
+				selections = _solve_prob_at_v(
+					problem=problem, x=x, v_current_cp=v_current_cp, v_current=v_tl, ngroups=ngroups
+				)
+				power_tl = np.sum(selections * (1-peps) * weights)
+				# upper point
+				v_tu = v_lower / 4 + 3 * v_upper / 4
+				selections = _solve_prob_at_v(
+					problem=problem, x=x, v_current_cp=v_current_cp, v_current=v_tu, ngroups=ngroups
+				)
+				power_tu = np.sum(selections * (1-peps) * weights)
+				# Check for unimodality
+				if verbose and not uni_warning_issued: 
+					uni_warning_issued = _check_unimodality(
+						power_lower=power_lower, power_tl=power_tl, 
+						power_tu=power_tu, power_upper=power_upper
+					)
+
+				# search for unimodal maximum
+				if power_tl == 0 and power_upper == 0:
+					v_upper = v_tl
+					power_upper = 0
+				elif power_tl <= power_tu:
+					v_lower = v_tl
+					power_lower = power_tl
 				else:
-					power = np.sum(selections * (1-peps) * weights)
-				if power > power_lower:
-					v_lower = v_current
-				else:
-					v_upper = v_current
+					v_upper = v_tu
+					power_upper = power_tu
+
 			# FWER search
 			elif error == 'fwer':
+
+				# Change parametrized constraint
+				v_current = (v_upper + v_lower)/2
+				v_current_cp.value = v_current 
+				# Solve
+				problem.solve(solver=DEFAULT_SOLVER, warm_start=True)
+				selections = x.value
+
 				# Round selections---could do something smarter, TODO
 				selections = np.around(selections)
 				# Compute exact FWER
@@ -345,7 +406,7 @@ def BLiP_cts(
 	d = locs.shape[2] # dimensionality
 	for cand_group in all_rej:
 		center = np.zeros(d)
-		radius = cand_group.data['radius'] * scales + shifts
+		radius = cand_group.data.pop('radius') * scales + shifts
 		for k in range(d):
 			center[k] = cand_group.data.pop(f'dim{k}') * scales[k] + shifts[k]
 		cand_group.data['center'] = center
@@ -460,7 +521,6 @@ def binarize_selections(
 		output.extend([nontriv_cand_groups[sg] for sg in selected_groups])
 
 	elif how_binarize == 'intlp':
-		
 		# Constraints to ensure selected groups are disjoint
 		A = np.zeros((ngroups, p))
 		for gj, cand_group in enumerate(nontriv_cand_groups):
@@ -490,6 +550,12 @@ def binarize_selections(
 		objective = cp.Maximize(weights @ x)
 		problem = cp.Problem(objective=objective, constraints=constraints)
 		problem.solve()
+
+		if problem.status == 'infeasible':
+			return output
+
+		if x.value is None:
+			print(f"stats={problem.status}, nontriv_cand_groups={nontriv_cand_groups}")
 
 		for binprob, x in zip(x.value, nontriv_cand_groups):
 			if binprob > 1 - tol:

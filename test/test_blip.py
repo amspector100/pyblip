@@ -206,9 +206,8 @@ class TestBLiP(CheckDetections):
 			cand_groups=cand_groups,
 			error='fdr',
 			weight_fn='prespecified',
-			q=0.05 + 1e-3
+			q=0.05
 		)
-		print(detections)
 		groups = set([tuple(x.group) for x in detections])
 		expected = set([(0,), (2,), (3,)])
 		self.assertEqual(

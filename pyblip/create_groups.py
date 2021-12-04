@@ -42,10 +42,10 @@ class CandidateGroup():
 		Converts self into a dictionary for saving as JSON.
 		"""
 		out = dict()
-		out['group'] = list(group)
-		out['pep'] = pep
+		out['group'] = list(self.group)
+		out['pep'] = self.pep
 		for key in self.data:
-			if isinstance(set, data[key]):
+			if isinstance(self.data[key], set):
 				out[key] = list(self.data[key])
 			else:
 				out[key] = self.data[key]
