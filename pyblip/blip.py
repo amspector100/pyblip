@@ -16,7 +16,6 @@ if 'GUROBI' in INSTALLED_SOLVERS:
 elif 'CBC' in INSTALLED_SOLVERS:
 	DEFAULT_SOLVER = 'CBC'
 else:
-	warnings.warn("Using default (slightly slower) solver ECOS")
 	DEFAULT_SOLVER = 'ECOS'
 
 UNIMODAL_WARNING = "Loss is not unimodal in v, so result is only approximately optimal."
@@ -28,11 +27,11 @@ ERROR_OPTIONS = ['fdr', 'local_fdr', 'fwer', 'pfer']
 BINARY_TOL = 1e-3
 
 
-def _solve_prob_at_v(problem, x, v_current, v_current_cp, ngroups):
+def _solve_prob_at_v(problem, x, v_current, v_current_cp, ngroups, solver):
 	# Reset parameter in cvxpy problem
 	v_current_cp.value = v_current
 	# Solve
-	problem.solve(solver=DEFAULT_SOLVER, warm_start=True)
+	problem.solve(solver=solver, warm_start=True)
 	# Check for infeasibility
 	if problem.status == 'infeasible':
 		selections = np.zeros(ngroups)
@@ -141,6 +140,9 @@ def BLiP(
 		raise ValueError("At least one of cand_groups and inclusions must be provided.")
 	if error != 'fdr':
 		max_pep = min(max_pep, q) # this is optimal for all but error == 'fdr'
+	solver = kwargs.get("solver", DEFAULT_SOLVER)
+	if solver == 'ECOS' and verbose:
+		warnings.warn("Using ECOS solver, which will be slightly slower. Consider installing CBC.")
 
 	# Create cand groups if necessary
 	if cand_groups is None:
@@ -246,7 +248,7 @@ def BLiP(
 
 	# Solve problem once if we do not need to search over v
 	if not binary_search:
-		problem.solve(solver=DEFAULT_SOLVER)
+		problem.solve(solver=solver)
 		selections = x.value
 
 	# Solve FWER/FDR through binary search
@@ -262,13 +264,23 @@ def BLiP(
 				# lower point
 				v_tl = 3 * v_lower / 4 + v_upper / 4
 				selections = _solve_prob_at_v(
-					problem=problem, x=x, v_current_cp=v_current_cp, v_current=v_tl, ngroups=ngroups
+					problem=problem, 
+					x=x, 
+					v_current_cp=v_current_cp,
+					v_current=v_tl,
+					ngroups=ngroups,
+					solver=solver
 				)
 				power_tl = np.sum(selections * (1-peps) * weights)
 				# upper point
 				v_tu = v_lower / 4 + 3 * v_upper / 4
 				selections = _solve_prob_at_v(
-					problem=problem, x=x, v_current_cp=v_current_cp, v_current=v_tu, ngroups=ngroups
+					problem=problem, 
+					x=x, 
+					v_current_cp=v_current_cp, 
+					v_current=v_tu,
+					ngroups=ngroups,
+					solver=solver
 				)
 				power_tu = np.sum(selections * (1-peps) * weights)
 				# Check for unimodality
@@ -296,7 +308,7 @@ def BLiP(
 				v_current = (v_upper + v_lower)/2
 				v_current_cp.value = v_current 
 				# Solve
-				problem.solve(solver=DEFAULT_SOLVER, warm_start=True)
+				problem.solve(solver=solver, warm_start=True)
 				selections = x.value
 
 				# Round selections---could do something smarter, TODO
@@ -317,7 +329,7 @@ def BLiP(
 
 		# Solve with v_lower for final solution
 		v_current_cp.value = v_lower
-		problem.solve(solver=DEFAULT_SOLVER, warm_start=True)
+		problem.solve(solver=solver, warm_start=True)
 		if problem.status == 'infeasible':
 			selections = np.zeros(ngroups)
 		else:
@@ -529,7 +541,7 @@ def binarize_selections(
 		A = A[:, A.sum(axis=0) > 0] # eliminate irrelevant features
 
 		# Concatenate constraints, variables
-		x = cp.Variable(ngroups, integer=True)
+		x = cp.Variable(ngroups, boolean=True)
 		x.value = np.zeros(ngroups)
 		selections = x.value
 		b = np.ones(A.shape[1])
@@ -540,8 +552,6 @@ def binarize_selections(
 		# Construct problem
 		constraints = [
 			A.T @ x <= b,
-			x >= 0,
-			x <= 1,
 			x @ peps <= v_prime,
 		]
 		if error == 'local_fdr':
@@ -549,7 +559,14 @@ def binarize_selections(
 
 		objective = cp.Maximize(weights @ x)
 		problem = cp.Problem(objective=objective, constraints=constraints)
-		problem.solve()
+
+		# GLPK is a good solver in general, but it has known 
+		# bugs in very small problems like this one. See
+		# https://github.com/cvxpy/cvxpy/issues/1112
+		if 'CBC' in INSTALLED_SOLVERS: 
+			problem.solve(solver='CBC')
+		else:
+			problem.solve()
 
 		if problem.status == 'infeasible':
 			return output

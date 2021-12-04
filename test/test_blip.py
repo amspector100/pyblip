@@ -211,7 +211,27 @@ class TestBLiP(CheckDetections):
 		groups = set([tuple(x.group) for x in detections])
 		expected = set([(0,), (2,), (3,)])
 		self.assertEqual(
-			groups, expected, f"FDR solution for adversarial example is wrong"
+			groups, expected, f"FDR solution for adversarial example #1 is wrong"
+		)
+
+		# Another adversarial example where higher PFER is bad
+		# This tests that the unimodality search is good
+		cand_groups = [
+			CandidateGroup(group=[0,1], pep=0.001, data=dict(weight=0.05)),
+			CandidateGroup(group=[1,2], pep=0.05, data=dict(weight=1)),
+			CandidateGroup(group=[2,], pep=0.0001, data=dict(weight=0.05)),
+		]
+		# BLiP for FDR control
+		detections = pyblip.blip.BLiP(
+			cand_groups=cand_groups,
+			error='fdr',
+			weight_fn='prespecified',
+			q=0.05
+		)
+		groups = set([tuple(x.group) for x in detections])
+		expected = set([(1,2)])
+		self.assertEqual(
+			groups, expected, f"FDR solution for adversarial example #2 is wrong"
 		)
 
 if __name__ == "__main__":
