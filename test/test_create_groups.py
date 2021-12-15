@@ -170,7 +170,7 @@ class TestCtsPEPs(unittest.TestCase):
 		)
 
 
-	def test_create_groups_cts(self):
+	def test_square_groups_cts(self):
 
 		# Simple 2d example with 2 discoveries
 		locs = np.array([
@@ -187,27 +187,29 @@ class TestCtsPEPs(unittest.TestCase):
 			grid_sizes=[10, 100, 1000],
 			extra_centers=np.array([[xc1, yc1]]),
 			log_interval=1, 
-			max_pep=1
+			max_pep=1,
+			shape='square'
 		)
 		# Check PEPs are right
-		pep1 = peps[(0.5, 0.4, 10)]
+		print(peps)
+		pep1 = peps[(0.5, 0.4, 1/20)]
 		self.assertTrue(
 			pep1 == 0,
-			f"PEP at (0.5, 0.4, 10) should be 0 but is {pep1}"
+			f"PEP at (0.5, 0.4, 1/20) should be 0 but is {pep1}"
 		)
-		pep2 = peps[(0.55, 0.45, 100)]
+		pep2 = peps[(0.55, 0.45, 1/200)]
 		np.testing.assert_almost_equal(
 			pep2, 
 			1/3,
 			decimal=5,
-			err_msg=f"PEP at (0.5, 0.4, 100) should be 1/3 but is {pep2}"
+			err_msg=f"PEP at (0.5, 0.4, 1/200) should be 1/3 but is {pep2}"
 		)
-		pep3 = peps[(0.3, 0.2, 10)]
+		pep3 = peps[(0.3, 0.2, 1/2000)]
 		np.testing.assert_almost_equal(
 			pep3,
 			1/3,
 			decimal=5,
-			err_msg=f"PEP at (0.3, 0.2, 10) should be 1/3 but is {pep3}"
+			err_msg=f"PEP at (0.3, 0.2, 1/2000) should be 1/3 but is {pep3}"
 		)
 		pep4 = peps[(np.around(xc1 - 0.05, 8), np.around(yc1 - 0.05, 8), 10)]
 		np.testing.assert_almost_equal(
@@ -217,7 +219,9 @@ class TestCtsPEPs(unittest.TestCase):
 			err_msg=f"PEP at {(xc1 - 0.05, yc1 - 0.05, 10)} should be 0 but is {pep4}"
 		)
 		# Compute BLiP nodes
-		all_cgroups, components = create_groups_cts.grid_peps_to_cand_groups(peps, verbose=True)
+		all_cgroups, components = create_groups_cts.grid_peps_to_cand_groups(
+			peps, verbose=True, shape='square'
+		)
 		self.assertTrue(
 			len(components) == 1,
 			f"In tiny problem, number of components is {len(components)} > 1."
