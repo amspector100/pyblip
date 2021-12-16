@@ -52,11 +52,12 @@ def _additional_circle_centers(
 	for j in range(d):
 		for offset in [-1, 1]:
 			centers_new = centers.copy()
-			centers_new[j] += offset * gsize
+			centers_new[:, j] += offset / gsize
 			# Check if points are in the offset centers
-			included = np.power(samples - centers_new, 2) > radius2
-			included = included & np.max(centers_new, axis=1) < 1 + TOL
-			included = included & np.min(centers_new, axis=1) > -TOL
+			#print(samples.shape, centers.shape, centers_new.shape)
+			included = np.power(samples - centers_new, 2).sum(axis=1) <= radius2
+			included = included & (np.max(centers_new, axis=1) < 1 + TOL)
+			included = included & (np.min(centers_new, axis=1) > -TOL)
 			centers_set = centers_set.union(
 				set(tuple(list(c)) for c in centers_new[included])
 			)
@@ -76,6 +77,8 @@ def _find_centers(
 	corners = corners.astype(float) / gsize
 
 	# Adjust to make centers and check for unexpected shapes
+	centers = corners + 1 / (2 * gsize)
+	centers_set = set(tuple(list(c)) for c in centers)
 	if shape == 'circle':
 		# Radius of Eucliean balls
 		if d != 2:
@@ -87,16 +90,14 @@ def _find_centers(
 		radius = 1 / (2 * gsize)
 	else:
 		raise ValueError(f"Unrecognized shape={shape}, must be one of 'square', 'circle'")
-	centers = corners + radius
-	centers_set = set(tuple(list(c)) for c in centers)
 
 	# Add extra centers for circles only
-	if shape == 'circle':
+	if shape == 'circle' and N > 0:
 		centers_set = _additional_circle_centers(
 			samples, centers, centers_set, radius, gsize 
 		)
 
-	return [(center, radius) for center in centers_set]
+	return [tuple(np.around(center, 10)) + (radius,) for center in centers_set]
 
 def grid_peps(
 	locs,
@@ -175,6 +176,9 @@ def grid_peps(
 		# Update PIPs
 		final_centers = set(all_centers).union(set(all_extra_centers))
 		for key in final_centers:
+
+			if key == (0.135, 0.405, 0.007071067811865475):
+				print(f"Included at j={j}")
 			if key not in pips:
 				pips[key] = 1 / N
 			else:
@@ -182,7 +186,7 @@ def grid_peps(
 
 		if log_interval is not None:
 			if j % log_interval == 0:
-				print(f"Computing PEPs: finished with {j} / {N} posterior samples at {elapsed(time0)}.")
+				print(f"Computing PEPs: finished with {j+1} / {N} posterior samples at {elapsed(time0)}.")
 
 	# Filter
 	filtered_peps = {}

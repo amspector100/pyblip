@@ -19,6 +19,25 @@ class CheckCandGroups(unittest.TestCase):
 			f"groups={groups} appears to contain duplicates with len(dedup_groups)={len(dedup_groups)}"
 		)
 
+	def check_peps_correct(self, peps, x, y, radius, locs, shape):
+		if shape != 'circle':
+			raise NotImplementedError("Only works for circles right now")
+		dists = np.sqrt(np.power(
+			locs - np.array([x, y]).reshape(1, 1, 2), 2
+		).sum(axis=2))
+		pip = np.mean(np.any(dists <= radius, axis=1))
+		expected_pep = 1 - pip
+		if expected_pep != 1:
+			key = (x, y, radius)
+			observed_pep = peps[key]
+			np.testing.assert_almost_equal(
+				observed_pep, 
+				expected_pep,
+				decimal=5,
+				err_msg=f"PEP at {key} should be {expected_pep} but is {observed_pep}"
+			)
+
+
 class TestCandGroups(CheckCandGroups):
 	"""
 	Tests creation of candidate groups when the set of locations
@@ -123,7 +142,7 @@ class TestCandGroups(CheckCandGroups):
 
 
 
-class TestCtsPEPs(unittest.TestCase):
+class TestCtsPEPs(CheckCandGroups):
 	"""
 	Tests creation of candidate groups when the set of locations
 	is continuous.
@@ -169,12 +188,46 @@ class TestCtsPEPs(unittest.TestCase):
 			err_msg=f"Cannot recreate locs from norm_locs"
 		)
 
+	def test_circular_groups_cts(self):
+
+		# 2d ex with 2 discoveries
+		locs = np.array([
+			[[0.13054,0.410234], [np.nan, np.nan]],
+			[[0.12958,0.406639], [0.46009, 0.459]],
+			[[0.46001, 0.45119], [0.1302, 0.4126]],
+			[[np.nan, np.nan], [0.95, 0.899]],
+			[[np.nan, np.nan], [np.nan, np.nan]]
+		])
+		grid_sizes = [10, 100, 1000]
+		peps = create_groups_cts.grid_peps(
+			locs, 
+			grid_sizes=grid_sizes,
+			log_interval=1,
+			max_pep=1,
+			shape='circle',
+		)
+
+		r1 = np.sqrt(2) / 20
+		r2 = np.sqrt(2) / 200
+		for x, y, radius in zip(
+			[0.45, 0.135, 0.135, 0.95, 0.95, 0.455],
+			[0.45, 0.405, 0.415, 0.95, 0.85, 0.465],
+			[r1, r2, r2, r1, r1, r2]
+		):
+			self.check_peps_correct(
+				peps=peps,
+				locs=locs,
+				x=x,
+				y=y,
+				radius=radius,
+				shape='circle',
+			)
 
 	def test_square_groups_cts(self):
 
 		# Simple 2d example with 2 discoveries
 		locs = np.array([
-			[[0.5502, 0.4502], [0.3, 0.2]],
+			[[0.5502, 0.4502], [0.30000001, 0.2000001]],
 			[[0.549, 0.451], [0.305, 0.201]],
 			[[0.553, 0.456], [np.nan, np.nan]]
 		])
@@ -191,37 +244,38 @@ class TestCtsPEPs(unittest.TestCase):
 			shape='square'
 		)
 		# Check PEPs are right
-		print(peps)
-		pep1 = peps[(0.5, 0.4, 1/20)]
+		pep1 = peps[(0.55, 0.45, 1/20)]
 		self.assertTrue(
 			pep1 == 0,
-			f"PEP at (0.5, 0.4, 1/20) should be 0 but is {pep1}"
+			f"PEP at (0.55, 0.45, 1/20) should be 0 but is {pep1}"
 		)
-		pep2 = peps[(0.55, 0.45, 1/200)]
+		pep2 = peps[(0.555, 0.455, 1/200)]
 		np.testing.assert_almost_equal(
 			pep2, 
 			1/3,
 			decimal=5,
-			err_msg=f"PEP at (0.5, 0.4, 1/200) should be 1/3 but is {pep2}"
+			err_msg=f"PEP at (0.555, 0.455, 1/200) should be 1/3 but is {pep2}"
 		)
-		pep3 = peps[(0.3, 0.2, 1/2000)]
+		pep3 = peps[(0.3005, 0.2005, 1/2000)]
 		np.testing.assert_almost_equal(
 			pep3,
-			1/3,
+			2/3,
 			decimal=5,
-			err_msg=f"PEP at (0.3, 0.2, 1/2000) should be 1/3 but is {pep3}"
+			err_msg=f"PEP at (0.3005, 0.2005, 1/2000) should be 2/3 but is {pep3}"
 		)
-		pep4 = peps[(np.around(xc1 - 0.05, 8), np.around(yc1 - 0.05, 8), 10)]
+		key4 = (np.around(xc1, 8), np.around(yc1, 8), 1/20)
+		pep4 = peps[key4]
 		np.testing.assert_almost_equal(
 			pep4,
 			0,
 			decimal=5,
-			err_msg=f"PEP at {(xc1 - 0.05, yc1 - 0.05, 10)} should be 0 but is {pep4}"
+			err_msg=f"PEP at {key4} should be 0 but is {pep4}"
 		)
 		# Compute BLiP nodes
 		all_cgroups, components = create_groups_cts.grid_peps_to_cand_groups(
 			peps, verbose=True, shape='square'
 		)
+		print([(x.data['dim0'], x.data['dim1']) for l in all_cgroups for x in l])
 		self.assertTrue(
 			len(components) == 1,
 			f"In tiny problem, number of components is {len(components)} > 1."
@@ -245,7 +299,7 @@ class TestCtsPEPs(unittest.TestCase):
 					)
 			x1 = np.around(cand_group1.data['dim0'], 5)
 			y1 = np.around(cand_group1.data['dim1'], 5)
-			if x1 == 0.555 and y1 == 0.455:
+			if np.abs(x1 - 0.555) < 1e-5 and np.abs(y1 - 0.455) < 1e-5:
 				if np.abs(cand_group1.pep - 1/3) < 1e-5:
 					if np.abs(cand_group1.data['radius'] - 0.005) < 1e-5:
 						cent_flag = True
