@@ -18,12 +18,11 @@ elif 'CBC' in INSTALLED_SOLVERS:
 else:
 	DEFAULT_SOLVER = 'ECOS'
 
-UNIMODAL_WARNING = "Loss is not unimodal in v, so result is only approximately optimal."
 WEIGHT_FNS = {
 	'inverse_size':weight_fns.inverse_size,
 	'log_inverse_size':weight_fns.log_inverse_size,
 }
-ERROR_OPTIONS = ['fdr', 'local_fdr', 'fwer', 'pfer']
+ERROR_OPTIONS = ['fdr', 'local_fdr', 'fwer', 'pfer', 'max_error']
 BINARY_TOL = 1e-3
 
 def BLiP(
@@ -69,7 +68,9 @@ def BLiP(
 		Defaults to 'inverse_size'.
 	error : string
 		The type of error rate to control. Must be one of 
-		'fdr', 'local_fdr', 'fwer', or 'pfer'.
+		'fdr', 'local_fdr', 'fwer', 'pfer', 'max_error'. Note 
+		'max_error' minimizes the maximum of the false positive 
+		rate and false negative rate.
 	q : float
 		The level at which to control the error rate.
 	max_pep : float
@@ -105,7 +106,7 @@ def BLiP(
 		raise ValueError(f"error type {error} must be one of {ERROR_OPTIONS}")
 	if cand_groups is None and inclusions is None:
 		raise ValueError("At least one of cand_groups and inclusions must be provided.")
-	if error != 'fdr':
+	if error in ['fwer', 'pfer', 'local_fdr']:
 		max_pep = min(max_pep, q) # this is optimal for all but error == 'fdr'
 	solver = kwargs.get("solver", DEFAULT_SOLVER)
 	if solver == 'ECOS' and verbose:
@@ -177,6 +178,16 @@ def BLiP(
 	b = np.ones(nrel)
 	v_current_cp = cp.Parameter()
 	v_variable = cp.Variable(pos=True) # for FDR only
+
+	# Based on the error rate, run BLiP
+	if error == 'max_error':
+		return _BLiP_max_error(
+			cand_groups=cand_groups,
+			weights=weights,
+			peps=peps,
+			A=A,
+			solver=solver
+		)
 
 	# We perform a binary for FWER to find optimal v.
 	if inclusions is not None and error == 'fwer' and search_method == 'binary':
@@ -284,6 +295,50 @@ def BLiP(
 		error=error,
 		how_binarize=how_binarize
 	)
+
+def _BLiP_max_error(
+	cand_groups,
+	A,
+	peps,
+	weights,
+	solver
+):
+	# Estimate number of signals
+	N = 0
+	for cg in cand_groups:
+		if len(cg.group) == 1:
+			N += 1 - cg.pep
+
+	# Construct problem
+	ngroups, nrel = A.shape
+	x = cp.Variable(ngroups)
+	x.value = np.zeros(ngroups)
+	b = np.ones(nrel)
+	FNR = N - (x @ weights) / N
+	FPR = x @ peps
+	error = cp.Variable(pos=True) # max of FDR/FPR
+	objective = cp.Minimize(error)
+	constraints = [
+		x >= 0,
+		x <= 1,
+		A.T @ x <= b,
+		error >= FNR,
+		error >= FPR,
+		error >= 0
+	]
+
+	# Solve
+	problem = cp.Problem(objective=objective, constraints=constraints)
+	problem.solve(solver=solver)
+
+	# Round and return
+	selections = np.around(x.value)
+	for cg, sprob, weight in zip(cand_groups, selections, weights):
+		cg.data['sprob'] = sprob
+		cg.data['weight'] = weight
+	return [
+		x for x in cand_groups if x.data['sprob'] >= 1 - BINARY_TOL
+	]
 
 def BLiP_cts(
 	locs,

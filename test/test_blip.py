@@ -234,5 +234,30 @@ class TestBLiP(CheckDetections):
 			groups, expected, f"FDR solution for adversarial example #2 is wrong"
 		)
 
+	def test_max_error_soln(self):
+		for pep1, pep2, expected in zip(
+			[0.7, 0.4, 0.01],
+			[0.5, 0.1, 0.8],
+			[set([(0,1)]), set([(0,), (1,)]), set([(0,)])]
+		):
+			min_pep = max(0, pep1 + pep2 - 1)
+			cand_groups = [
+				CandidateGroup(group=[0,], pep=pep1, data=dict(weight=1)),
+				CandidateGroup(group=[1], pep=pep2, data=dict(weight=1)),
+				CandidateGroup(group=[0,1], pep=min_pep, data=dict(weight=1/2))
+			]
+			detections = pyblip.blip.BLiP(
+				cand_groups=cand_groups,
+				error='max_error',
+				weight_fn='prespecified',
+				max_pep=1
+			)
+			groups = set([tuple(x.group) for x in detections])
+			self.assertEqual(
+				groups, expected, f"Max_error solution for simple ex is wrong"
+			)
+
+
+
 if __name__ == "__main__":
 	unittest.main()
