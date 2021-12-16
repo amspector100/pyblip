@@ -176,9 +176,6 @@ def grid_peps(
 		# Update PIPs
 		final_centers = set(all_centers).union(set(all_extra_centers))
 		for key in final_centers:
-
-			if key == (0.135, 0.405, 0.007071067811865475):
-				print(f"Included at j={j}")
 			if key not in pips:
 				pips[key] = 1 / N
 			else:
@@ -283,6 +280,7 @@ def grid_peps_to_cand_groups(
 			data_dict = dict(radius=radii[j])
 			for k in range(d):
 				data_dict[f'dim{k}'] = centers[k, j]
+			data_dict['center'] = centers[:, j].tolist()
 			component_cand_groups.append(
 				CandidateGroup(
 					group=group,

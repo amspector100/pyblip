@@ -223,6 +223,31 @@ class TestCtsPEPs(CheckCandGroups):
 				shape='circle',
 			)
 
+		# Compute BLiP nodes
+		all_cgroups, components = create_groups_cts.grid_peps_to_cand_groups(
+			peps, verbose=True, shape='square'
+		)
+		self.assertTrue(
+			len(components) == 1,
+			f"In tiny problem, number of components is {len(components)} > 1."
+		)
+
+		# Check that cand groups are right
+		for cand_group1 in all_cgroups[0]:
+			rad1 = cand_group1.data['radius']
+			cent1 = np.array(cand_group1.data['center'])
+			for cand_group2 in all_cgroups[0]:
+				rad2 = cand_group2.data['radius']
+				cent2 = np.array(cand_group2.data['center'])
+				dist = np.sqrt(np.power(cent1 - cent2, 2).sum())
+				if dist < rad1 + rad2:
+					print(cand_group1.data, cand_group2.data)
+					self.assertTrue(
+						len(cand_group1.group.intersection(cand_group2.group)) > 0,
+						f"cand_group1 and cand_group2 should overlap but don't: {cand_group1.data}, {cand_group2.data}"
+					)
+
+
 	def test_square_groups_cts(self):
 
 		# Simple 2d example with 2 discoveries
@@ -275,7 +300,6 @@ class TestCtsPEPs(CheckCandGroups):
 		all_cgroups, components = create_groups_cts.grid_peps_to_cand_groups(
 			peps, verbose=True, shape='square'
 		)
-		print([(x.data['dim0'], x.data['dim1']) for l in all_cgroups for x in l])
 		self.assertTrue(
 			len(components) == 1,
 			f"In tiny problem, number of components is {len(components)} > 1."
