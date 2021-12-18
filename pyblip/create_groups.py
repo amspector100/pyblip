@@ -59,8 +59,7 @@ def sequential_groups(
 	prenarrow=True
 ):
 	"""
-	Calculate peps for all sequential groups 
-	of size less than max_size.
+	Calculates all sequential candidate groups below max_size.
 
 	Parameters
 	----------
@@ -79,8 +78,7 @@ def sequential_groups(
 		as described in the paper. Defaults to True.
 	"""
 	inclusions = inclusions != 0 # make boolean
-	N = inclusions.shape[0]
-	p = inclusions.shape[1]
+	N, p = inclusions.shape
 	max_size = min(max_size, p)
 	cum_incs = np.zeros((N, p+1))
 	cum_incs[:, 1:(p+1)] = np.cumsum(inclusions, axis=1)
@@ -90,15 +88,13 @@ def sequential_groups(
 	for m in list(range(max_size)):
 		cum_diffs = cum_incs[:, (m+1):(p+1)] - cum_incs[:, :int(p-m)]
 		all_PEPs[m] = np.mean(cum_diffs == 0, axis=0)
-	#print(all_PEPs[1])
-	#print(np.mean(inclusions, axis=0))
 
 	# the index is the first (smallest) variable in the group which has size m
 	active_inds = {}
 	for m in range(max_size):
 		active_inds[m] = np.where(all_PEPs[m] < max_pep)[0]
 
-	# Lucas's trick
+	# prenarrowing
 	# This iteratively updates the list elim_inds so that
 	# when consider the set of groups of size m+1, 
 	# elim_inds are all the indices that are redundant
@@ -106,7 +102,7 @@ def sequential_groups(
 		elim_inds = set(np.where(all_PEPs[0] < q)[0].tolist())
 		for m in range(1, max_size):
 			# If index j is eliminated for level m-1, indexes j and j-1
-			# are eliminated for index m
+			# are eliminated for level m
 			elim_inds = elim_inds.union(set([x-1 for x in elim_inds]))
 			# Update active_inds[m]
 			update = set(active_inds[m].tolist()) - elim_inds
@@ -275,10 +271,8 @@ def _elim_redundant_features(cand_groups):
 
 	# Step 2: change feature inds to save computation
 	nrel = len(active_features)
-	new2orig = np.zeros((nrel,))
 	orig2new = {}
 	for i, j in enumerate(list(active_features)):
-		new2orig[i] = j
 		orig2new[j] = i
 	for cand_group in cand_groups:
 		blip_group = [orig2new[x] for x in cand_group.group]

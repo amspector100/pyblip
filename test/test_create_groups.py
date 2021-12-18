@@ -126,10 +126,9 @@ class TestCandGroups(CheckCandGroups):
 				f"groups={expect} was unexpectedly not in groups={groups}"
 			)
 
-
 		# Check that max_peps works
 		for max_pep in [0.2, 0.4, 0.6, 0.8, 1]:
-			cand_groups = create_groups.sequential_groups(
+			cand_groups = create_groups.hierarchical_groups(
 				inclusions, max_size=4, max_pep=max_pep
 			)
 			max_pep_obs = max([x.pep for x in cand_groups])

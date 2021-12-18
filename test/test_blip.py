@@ -81,7 +81,7 @@ class TestBinarizeSelections(CheckDetections):
 		p = 4
 		v = 0.2
 		detections = blip.binarize_selections(
-			cand_groups, p=p, v_opt=v, error='pfer', how_binarize='intlp'
+			cand_groups, q=v, error='pfer', deterministic=True
 		)
 		detected_groups = set([tuple(x.group) for x in detections])
 		expected = set([(2,), (0,1)])
@@ -95,7 +95,7 @@ class TestBinarizeSelections(CheckDetections):
 		all_detections = []
 		for _ in range(reps):
 			detections = blip.binarize_selections(
-				cand_groups, p=p, v_opt=v, error='pfer', how_binarize='sample'
+				cand_groups, q=v, error='pfer', deterministic=False
 			)
 			self.check_disjoint(detections)
 			all_detections.append(detections)
@@ -125,7 +125,7 @@ class TestBinarizeSelections(CheckDetections):
 		vs = [0.1, 0.2, 0.5, 1.5, 2]
 		for v in vs:
 			detections = blip.binarize_selections(
-				cand_groups, p=p, v_opt=v, error='pfer', how_binarize='intlp'
+				cand_groups, q=v, error='pfer', deterministic=True
 			)
 			self.check_disjoint(detections)
 			self.check_pfer_control(detections=detections, v=v)
@@ -135,7 +135,7 @@ class TestBinarizeSelections(CheckDetections):
 				all_detections = []
 				for _ in range(reps):
 					detections = blip.binarize_selections(
-						cand_groups, p=p, v_opt=v, error='pfer', how_binarize='sample'
+						cand_groups, q=v, error='pfer', deterministic=False
 					)
 					self.check_disjoint(detections)
 					all_detections.append(detections)
@@ -175,11 +175,10 @@ class TestBLiP(CheckDetections):
 				inclusions=inclusions,
 				error='fdr',
 				q=q,
-				how_binarize='intlp'
+				deterministic=True
 			)
 			self.check_disjoint(detections)
 			self.check_fdr_control(detections, q=q)
-			#print(f"for q={q}, realized FDR={np.mean([x.pep for x in detections])}")
 
 			# PFER control
 			detections = pyblip.blip.BLiP(
@@ -187,7 +186,7 @@ class TestBLiP(CheckDetections):
 				weight_fn='log_inverse_size',
 				error='pfer',
 				q=q,
-				how_binarize='intlp'
+				deterministic=True
 			)
 			self.check_disjoint(detections)
 			self.check_pfer_control(detections, v=q)
@@ -215,7 +214,6 @@ class TestBLiP(CheckDetections):
 		)
 
 		# Another adversarial example where higher PFER is bad
-		# This tests that the unimodality search is good
 		cand_groups = [
 			CandidateGroup(group=[0,1], pep=0.001, data=dict(weight=0.05)),
 			CandidateGroup(group=[1,2], pep=0.05, data=dict(weight=1)),
@@ -233,29 +231,6 @@ class TestBLiP(CheckDetections):
 		self.assertEqual(
 			groups, expected, f"FDR solution for adversarial example #2 is wrong"
 		)
-
-	def test_max_error_soln(self):
-		for pep1, pep2, expected in zip(
-			[0.7, 0.4, 0.01],
-			[0.5, 0.1, 0.8],
-			[set([(0,1)]), set([(0,), (1,)]), set([(0,)])]
-		):
-			min_pep = max(0, pep1 + pep2 - 1)
-			cand_groups = [
-				CandidateGroup(group=[0,], pep=pep1, data=dict(weight=1)),
-				CandidateGroup(group=[1], pep=pep2, data=dict(weight=1)),
-				CandidateGroup(group=[0,1], pep=min_pep, data=dict(weight=1/2))
-			]
-			detections = pyblip.blip.BLiP(
-				cand_groups=cand_groups,
-				error='max_error',
-				weight_fn='prespecified',
-				max_pep=1
-			)
-			groups = set([tuple(x.group) for x in detections])
-			self.assertEqual(
-				groups, expected, f"Max_error solution for simple ex is wrong"
-			)
 
 
 

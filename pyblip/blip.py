@@ -22,7 +22,7 @@ WEIGHT_FNS = {
 	'inverse_size':weight_fns.inverse_size,
 	'log_inverse_size':weight_fns.log_inverse_size,
 }
-ERROR_OPTIONS = ['fdr', 'local_fdr', 'fwer', 'pfer', 'max_error']
+ERROR_OPTIONS = ['fdr', 'local_fdr', 'fwer', 'pfer']
 BINARY_TOL = 1e-3
 
 def BLiP(
@@ -32,7 +32,7 @@ def BLiP(
 	error='fdr',
 	q=0.1,
 	max_pep=0.5,
-	how_binarize='sample',
+	deterministic=True,
 	verbose=True,
 	perturb=True,
 	max_iters=100,
@@ -68,28 +68,24 @@ def BLiP(
 		Defaults to 'inverse_size'.
 	error : string
 		The type of error rate to control. Must be one of 
-		'fdr', 'local_fdr', 'fwer', 'pfer', 'max_error'. Note 
-		'max_error' minimizes the maximum of the false positive 
-		rate and false negative rate.
+		'fdr', 'local_fdr', 'fwer', 'pfer'.
 	q : float
 		The level at which to control the error rate.
 	max_pep : float
 		BLiP automatically filters out candidate groups with
 		a posterior error probability (PEP) above ``max_pep``.
 		Default: 0.5.
-	how_binarize : string
-		How to round the solutions to the linear program (LP) to
-		integers. Must equal either 'sample' (random sampling) 
-		or 'intlp' (integer LP).
+	deterministic : bool
+		If True, gives a deterministic solution. Otherwise BLiP
+		may employ a randomized solution for slightly more power.
 	verbose : bool
 		If True, gives occasional progress reports.
 	max_iters : int
 		Maximum number of line-search iterations for FDR problem.
-		Defaults to 50.
+		Defaults to 100.
 	search_method : string
 		For FWER control, how to find the optimal parameter
-		for the LP. Either "none" or "binary_search." Defaults
-		to "binary". 
+		for the LP. Either "none" or "binary." Defaults to "binary". 
 	perturb : bool
 		If True, will perturb the weight function 
 
@@ -165,67 +161,47 @@ def BLiP(
 	# Constraints to ensure selected groups are disjoint
 	if verbose:
 		print(f"BLiP problem has {ngroups} groups in contention, with {nrel} active features/locations")
-	group_constraints = np.zeros((ngroups, nrel), dtype=bool)
+	A = np.zeros((ngroups, nrel), dtype=bool)
 	for gj, cand_group in enumerate(cand_groups):
 		for feature in cand_group.data['blip-group']:
-			group_constraints[gj, feature] = 1
+			A[gj, feature] = 1
 
-	# Concatenate constraints, variables
-	A = group_constraints
+	# Assemble constraints, variables
 	x = cp.Variable(ngroups)
 	x.value = np.zeros(ngroups)
-	selections = x.value
 	b = np.ones(nrel)
-	v_current_cp = cp.Parameter()
-	v_variable = cp.Variable(pos=True) # for FDR only
-
-	# Based on the error rate, run BLiP
-	if error == 'max_error':
-		return _BLiP_max_error(
-			cand_groups=cand_groups,
-			weights=weights,
-			peps=peps,
-			A=A,
-			solver=solver
-		)
+	v_param = cp.Parameter()
+	v_param.value = q
+	v_var = cp.Variable(pos=True) # for FDR only
 
 	# We perform a binary for FWER to find optimal v.
 	if inclusions is not None and error == 'fwer' and search_method == 'binary':
 		binary_search = True
 	else:
 		binary_search = False
-	if binary_search:
-		# upper bnd in binary search (e.g., min val not controlling FWER)
-		v_upper = q * nrel + 1
-		# lower bnd in binary search (e.g., max val not controlling FWER)
-		v_lower = 0
-		v_current_cp.value = (v_upper + v_lower)/2
-	else:
-		v_current_cp.value = q
 
 	# Construct problem
 	constraints = [
 		x >= 0,
 		x <= 1,
-		A.T @ x <= b,
-		x @ peps <= v_current_cp,
+		A.T @ x <= b
 	]
 	# Last constraint is redundant for local_fdr
-	if error == 'local_fdr':
-		constraints = constraints[0:-1]
-	# Extra constraints for fdr
-	if error == 'fdr':
-		constraints = constraints[0:-1]
+	if error in ['pfer', 'fwer']:
 		constraints += [
-			x @ peps <= v_variable,
-			cp.sum(x) >= v_variable / q,
-			v_variable >= 0,
-			v_variable <= q * nrel + 1
+			x @ peps <= v_param
+		]
+	# Extra constraints for fdr
+	elif error == 'fdr':
+		constraints += [
+			x @ peps <= v_var,
+			cp.sum(x) >= v_var / q,
+			v_var >= 0,
+			v_var <= q * nrel + 1
 		]
 
 	# Create problem
-	objective = cp.Maximize(weights @ x)
-	prev_selections = x.value.copy()
+	objective = cp.Maximize(((1-peps) * weights) @ x)
 	problem = cp.Problem(objective=objective, constraints=constraints)
 
 	# Solve problem once if we do not need to search over v
@@ -235,18 +211,13 @@ def BLiP(
 
 	# Solve FWER/FDR through binary search
 	elif binary_search:
-
-		if error != 'fwer':
-			raise ValueError(f"binary_search={binary_search} but error={error}!='fwer'")
-
-		uni_warning_issued = False # only issue the warning once
-		power_lower = 0 
-		power_upper = 0
+		v_upper = q * nrel + 1 # upper bnd in search (min val not controlling FWER)
+		v_lower = 0 # lower bnd in search (max val controlling FWER)
 		inclusions = inclusions != 0
 		for niter in range(max_iters):
 			# Change parametrized constraint
 			v_current = (v_upper + v_lower)/2
-			v_current_cp.value = v_current 
+			v_param.value = v_current 
 			# Solve
 			problem.solve(solver=solver, warm_start=True)
 			selections = x.value
@@ -268,7 +239,7 @@ def BLiP(
 				break
 
 		# Solve with v_lower for final solution
-		v_current_cp.value = v_lower
+		v_param.value = v_lower
 		problem.solve(solver=solver, warm_start=True)
 		if problem.status == 'infeasible':
 			selections = np.zeros(ngroups)
@@ -283,62 +254,12 @@ def BLiP(
 		cand_group.data['sprob'] = sprob
 		cand_group.data['weight'] = weight
 
-	if error == 'fdr':
-		v_opt = v_variable.value
-	else:
-		v_opt = v_current_cp.value
-
 	return binarize_selections(
 		cand_groups=cand_groups,
-		p=nrel,
-		v_opt=v_opt,
+		q=q,
 		error=error,
-		how_binarize=how_binarize
+		deterministic=deterministic
 	)
-
-def _BLiP_max_error(
-	cand_groups,
-	A,
-	peps,
-	weights,
-	solver
-):
-	# Estimate number of signals
-	N = 0
-	for cg in cand_groups:
-		if len(cg.group) == 1:
-			N += 1 - cg.pep
-
-	# Construct problem
-	ngroups, nrel = A.shape
-	x = cp.Variable(ngroups)
-	x.value = np.zeros(ngroups)
-	b = np.ones(nrel)
-	FNR = N - (x @ weights) / N
-	FPR = x @ peps
-	error = cp.Variable(pos=True) # max of FDR/FPR
-	objective = cp.Minimize(error)
-	constraints = [
-		x >= 0,
-		x <= 1,
-		A.T @ x <= b,
-		error >= FNR,
-		error >= FPR,
-		error >= 0
-	]
-
-	# Solve
-	problem = cp.Problem(objective=objective, constraints=constraints)
-	problem.solve(solver=solver)
-
-	# Round and return
-	selections = np.around(x.value)
-	for cg, sprob, weight in zip(cand_groups, selections, weights):
-		cg.data['sprob'] = sprob
-		cg.data['weight'] = weight
-	return [
-		x for x in cand_groups if x.data['sprob'] >= 1 - BINARY_TOL
-	]
 
 def BLiP_cts(
 	locs,
@@ -418,10 +339,9 @@ def BLiP_cts(
 
 def binarize_selections(
 	cand_groups,
-	p,
-	v_opt,
+	q,
 	error,
-	how_binarize='sample',
+	deterministic,
 	tol=1e-3,
 ):
 	"""
@@ -429,12 +349,12 @@ def binarize_selections(
 	----------
 	cand_groups : list
 		list of candidate groups. 
-	p : int
-		dimensionality
-	v_opt : int
-		Level for PFER control.
-	how_binarize : str 
-		how to binarize the selections.
+	q : float
+		Level at which to control the error rate.
+	error : string
+		The error to control: one of 'fdr', 'fwer', 'pfer', 'local_fdr'
+	deterministic : bool 
+		If True, will not use a randomized solution.
 
 	Returns
 	-------
@@ -459,94 +379,92 @@ def binarize_selections(
 	if ngroups == 0:
 		return output
 	if ngroups == 1:
-		if how_binarize == 'sample' and np.random.uniform() < nontriv_cand_groups[0].data['sprob']:
+		if not deterministic and np.random.uniform() < nontriv_cand_groups[0].data['sprob']:
 			output.append(nontriv_cand_groups[0])
 		return output
 
+	# Constraints to ensure selected groups are disjoint
+	nontriv_cand_groups, nrel = create_groups._elim_redundant_features(nontriv_cand_groups)
+	A = np.zeros((ngroups, nrel), dtype=bool)
+	for gj, cand_group in enumerate(nontriv_cand_groups):
+		for feature in cand_group.data['blip-group']:
+			A[gj, feature] = 1
+
 	# Sampling method
-	if how_binarize == 'sample':
-		# Create dataframe
-		ndf = pd.DataFrame(columns = ['prob'] + list(range(p)))
-		for i, cand_group in enumerate(nontriv_cand_groups):
-			ndf.loc[i] = np.zeros((p+1),)
-			ndf.loc[i, 'prob'] = cand_group.data['sprob']
-			for j in cand_group.data['blip-group']:
-				ndf.loc[i, j] = 1
+	if not deterministic:
+		sprobs = np.array([cg.data['sprob'] for cg in nontriv_cand_groups])
 
-		 # Sort features in terms of marg. prob of selection
-		ind_probs = []
-		for x in range(p):
-			ind_probs.append(ndf.loc[ndf[x] == 1, 'prob'].sum())
-		inds = np.argsort(-1*np.array(ind_probs))
-		
+		# Sort features in order of marg. prob of selection
+		marg_probs = np.zeros(nrel)
+		for j in range(nrel):
+			marg_probs[j] = sprobs[A[:,j] == 1].sum()
+		inds = np.argsort(-1*marg_probs)
+
 		# Initialize
-		eliminated_groups = np.zeros((ngroups,))
+		eliminated_groups = np.zeros(ngroups).astype(bool)
 		selected_groups = []
-		for x in inds:
-
-			if eliminated_groups.sum() == ngroups:
+		# Loop through features and sample
+		for feature in inds:
+			if np.all(eliminated_groups):
 				break
-			
-			# Subset of available options to sample from
-			subset = ndf.loc[(ndf[x] == 1) & (eliminated_groups == 0)]
-			if subset.shape[0] == 0:
-				continue
-			
-			# Scale up probabilities
-			prev_eliminated = ndf.loc[(ndf[x] == 1) & (eliminated_groups == 1)]
-			scale = 1 - prev_eliminated['prob'].sum()
-			new_probs = subset['prob'].values / scale
-			
-			# Select nothing with some probability
-			if np.random.uniform() <= 1 - new_probs.sum():
-				eliminated_groups[subset.index] = 1
-				continue
-			
-			# Else, select something according to new_probs
-			selected_group = np.where(
-				np.random.multinomial(1, new_probs / new_probs.sum()) != 0
-			)[0][0]
-			selected_group = subset.index[selected_group]
-			
-			# Save this group 
-			selected_groups.append(selected_group)
-			
-			# Eliminate all mutually exclusive groups
-			row = ndf.loc[selected_group]
-			features = [x for x in row.index if row[x] == 1]
-			for feature in features:
-				eliminated_groups[ndf.loc[ndf[feature] == 1].index] = 1
+			# Subset of available groups which contain the feature
+			available_flags = (A[:,feature] == 1) & (~eliminated_groups)
+			if np.any(available_flags):
+				# Scale up conditional probabilities
+				prev_elim = (A[:,feature] == 1) & (eliminated_groups)
+				scale = 1 - sprobs[prev_elim].sum()
+				new_probs = sprobs[available_flags] / scale
+				# select nothing with some probability
+				if np.random.uniform() <= 1 - new_probs.sum():
+					eliminated_groups[A[:,feature] == 1] = True
+					continue
+				# else select one of the groups containing feature
+				selected_group = np.where(
+					np.random.multinomial(1, new_probs / new_probs.sum()) != 0
+				)[0][0]
+				selected_group = np.where(available_flags)[0][selected_group]
+				selected_groups.append(selected_group)
+				# eliminate all mutually exclusive features
+				group_features = np.where(A[selected_group]==1)[0]
+				new_elim_groups = np.sum(A[:, group_features], axis=1) != 0
+				eliminated_groups[new_elim_groups] = True
 
-		if ndf.loc[selected_groups, inds].sum(axis='index').max() > 1:
-			raise RuntimeError("A feature was selected in multiple groups...")
 		output.extend([nontriv_cand_groups[sg] for sg in selected_groups])
 
-	elif how_binarize == 'intlp':
-		# Constraints to ensure selected groups are disjoint
-		A = np.zeros((ngroups, p))
-		for gj, cand_group in enumerate(nontriv_cand_groups):
-			for feature in cand_group.data['blip-group']:
-				A[gj, feature] = 1
-		A = A[:, A.sum(axis=0) > 0] # eliminate irrelevant features
-
-		# Concatenate constraints, variables
+	else:
+		# Construct integer linear program 
+		peps = np.array([cand_group.pep for cand_group in nontriv_cand_groups])
+		weights = np.array([
+			cand_group.data['weight'] for cand_group in nontriv_cand_groups
+		])
+		# Assemble constraints, variables
 		x = cp.Variable(ngroups, boolean=True)
 		x.value = np.zeros(ngroups)
-		selections = x.value
-		b = np.ones(A.shape[1])
-		v_prime = v_opt - sum([n.pep for n in output])
-		peps = [cand_group.pep for cand_group in nontriv_cand_groups]
-		weights = [cand_group.data['weight'] for cand_group in nontriv_cand_groups]
-
+		b = np.ones(nrel)
+		# Account for discoveries already made
+		ndisc_out = len(output)
+		v_output = sum([cg.pep for cg in output])
 		# Construct problem
 		constraints = [
-			A.T @ x <= b,
-			x @ peps <= v_prime,
+			A.T @ x <= b
 		]
-		if error == 'local_fdr':
-			constraints = constraints[0:-1]
+		if error in ['pfer', 'fwer']:
+			if error == 'pfer':
+				v_opt = q
+			else:
+				v_opt = sum([cg.pep * cg.data['sprob'] for cg in cand_groups])
+			v_new = v_opt - v_output
+			constraints += [
+				x @ peps <= v_new
+			]
+		elif error == 'fdr':
+			v_var = cp.Variable(pos=True)
+			constraints += [
+				x @ peps <= v_var,
+				sum(x) >= (v_var + v_output) / q - ndisc_out
+			]
 
-		objective = cp.Maximize(weights @ x)
+		objective = cp.Maximize(((1-peps) * weights) @ x)
 		problem = cp.Problem(objective=objective, constraints=constraints)
 
 		# GLPK is a good solver in general, but it has known 
