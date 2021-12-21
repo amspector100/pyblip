@@ -37,13 +37,21 @@ class CheckCandGroups(unittest.TestCase):
 				err_msg=f"PEP at {key} should be {expected_pep} but is {observed_pep}"
 			)
 
-
 class TestCandGroups(CheckCandGroups):
 	"""
 	Tests creation of candidate groups when the set of locations
 	is discrete, e.g. when the locations correspond to features
 	in variable selection problems.
 	"""
+	def test_deduplication(self):
+		# Simple test to make sure _dedup is working
+		groups = [[0,1], [1,0], np.array([0,1]), np.array([1,0]), (0,1)]
+		dedup = create_groups._dedup_list_of_lists(groups)
+		self.assertEqual(
+			len(dedup),
+			1,
+			"_dedup_list_of_lists fails to accurately deduplicate"
+		)
 
 	def test_sequential_groups(self):
 		
@@ -138,6 +146,46 @@ class TestCandGroups(CheckCandGroups):
 			)
 			# Check for duplicates
 			self.check_unique(cand_groups)
+
+	def test_susie_groups(self):
+		# susie alphas, L = 3, p = 5
+		alphas = np.array([
+			[0.89, 0.07, 0.04, 0.0, 0.0],
+			[0.05, 0.25, 0.02, 0.03, 0.65],
+			[0.85, 0.01, 0.01, 0.01, 0.12],
+			[0.01, 0.01, 0.01, 0.01, 0.96]
+		])
+		n = 20
+		L, p = alphas.shape
+		# Create groups
+		cand_groups = create_groups.susie_groups(
+			alphas=alphas,
+			X=np.random.randn(n, p),
+			q=0.1,
+			max_size=5,
+			max_pep=1,
+			prenarrow=False
+		)
+		self.check_unique(cand_groups)
+		# Check existence of several groups
+		groups = [x.group for x in cand_groups]
+		expected = [set([i]) for i in [0,1,2,3,4]] + [set([0,1]), set([1,4]), set([0,4])]
+		for expect in expected:
+			self.assertTrue(
+				expect in groups,
+				f"groups={expect} was unexpectedly not in groups={groups}"
+			)
+		# Check peps are correct
+		for g in [[0], [0,1], [1,4], [0,4]]:
+			pep = np.exp(np.log(1 - alphas[:,g].sum(axis=1)).sum())
+			cgs = [x for x in cand_groups if x.group == set(g)]
+			cg = cgs[0]
+			np.testing.assert_almost_equal(
+				cg.pep, 
+				pep,
+				decimal=10,
+				err_msg=f'susie_groups computed the wrong pep for group={g}, pep={cg.pep}, expected={pep}'
+			)
 
 
 

@@ -7,6 +7,8 @@ import scipy.cluster.hierarchy as hierarchy
 import scipy.spatial.distance as ssd
 ### todo : a generic function which performs prenarrowing
 
+MIN_PEP = 1e-15 # for numerical stability
+
 class CandidateGroup():
 	"""
 	A single candidate group as an input to BLiP.
@@ -52,11 +54,12 @@ class CandidateGroup():
 		return out
 
 def sequential_groups(
-	inclusions, 
+	inclusions=None, 
+	susie_alphas=None,
 	q=0,
 	max_pep=1,
 	max_size=25,
-	prenarrow=True
+	prenarrow=False
 ):
 	"""
 	Calculates all sequential candidate groups below max_size.
@@ -66,6 +69,10 @@ def sequential_groups(
 	inclusions : np.ndarray
 		An ``(N, p)``-shaped array of posterior samples,
 		where a nonzero value indicates the presence of a signal.
+	susie_alphas : np.ndarray
+		As an alternative to posterior samples, users may specify an
+		L x p matrix of alphas from a SuSiE object. However, calling
+		``susie_groups`` is recommended instead.
 	q : float
 		The nominal level at which to control the error rate.
 	max_pep : float
@@ -75,19 +82,34 @@ def sequential_groups(
 		Maximum size of a group. Default is 25.
 	prenarrow : bool
 		If true, "prenarrows" the candidate groups
-		as described in the paper. Defaults to True.
+		as described in the paper. Defaults to False.
 	"""
-	inclusions = inclusions != 0 # make boolean
-	N, p = inclusions.shape
-	max_size = min(max_size, p)
-	cum_incs = np.zeros((N, p+1))
-	cum_incs[:, 1:(p+1)] = np.cumsum(inclusions, axis=1)
 
-	# Compute successive groups of size m
-	all_PEPs = {}
-	for m in list(range(max_size)):
-		cum_diffs = cum_incs[:, (m+1):(p+1)] - cum_incs[:, :int(p-m)]
-		all_PEPs[m] = np.mean(cum_diffs == 0, axis=0)
+	if inclusions is not None:
+		inclusions = inclusions != 0 # make boolean
+		N, p = inclusions.shape
+		max_size = min(max_size, p)
+		cum_incs = np.zeros((N, p+1))
+		cum_incs[:, 1:(p+1)] = np.cumsum(inclusions, axis=1)
+
+		# Compute successive groups of size m
+		all_PEPs = {}
+		for m in range(max_size):
+			cum_diffs = cum_incs[:, (m+1):(p+1)] - cum_incs[:, :int(p-m)]
+			all_PEPs[m] = np.mean(cum_diffs == 0, axis=0)
+	elif susie_alphas is not None:
+		L, p = susie_alphas.shape
+		max_size = min(max_size, p)
+		cumalphas = np.zeros((L, p + 1))
+		cumalphas[:, 1:(p+1)] = np.cumsum(susie_alphas, axis=1)
+		# Compute successive groups of size m
+		all_PEPs = {}
+		for m in range(max_size):
+			cumdiffs = 1 - (cumalphas[:, (m+1):(p+1)] - cumalphas[:, :int(p-m)])
+			cumdiffs[cumdiffs < MIN_PEP] = MIN_PEP
+			all_PEPs[m] = np.exp(np.log(cumdiffs).sum(axis=0))
+	else:
+		raise ValueError("Either inclusions or susie_alphas must be specified.")
 
 	# the index is the first (smallest) variable in the group which has size m
 	active_inds = {}
@@ -99,7 +121,7 @@ def sequential_groups(
 	# when consider the set of groups of size m+1, 
 	# elim_inds are all the indices that are redundant
 	if prenarrow:
-		elim_inds = set(np.where(all_PEPs[0] < q)[0].tolist())
+		elim_inds = set(np.where(all_PEPs[0] < q / 2)[0].tolist())
 		for m in range(1, max_size):
 			# If index j is eliminated for level m-1, indexes j and j-1
 			# are eliminated for level m
@@ -109,7 +131,7 @@ def sequential_groups(
 			active_inds[m] = np.array(list(update))
 			# At this level, account for groups with PEP < q
 			elim_inds = elim_inds.union(set(
-				np.where(all_PEPs[m] < q)[0].tolist()
+				np.where(all_PEPs[m] < q / 2)[0].tolist()
 			))
 
 	# Step 3: create candidate groups
@@ -124,6 +146,76 @@ def sequential_groups(
 
 	return cand_groups
 
+def susie_groups(
+	alphas,
+	X,
+	q,
+	max_pep=1,
+	max_size=25,
+	prenarrow=False
+):
+	"""
+	Creates candidate groups based on a SuSiE fit.
+
+	Parameters
+	----------
+	alphas : np.array
+		An ``(L, p)``-shaped matrix of alphas from a SuSiE object
+	X : np.array
+		The n x p deisgn matrix. If not None, will also
+		add hierarchical groups based on a correlation cluster of X.
+	q : float
+		The level at which to control the error rate
+	max_pep : float
+		The maximum posterior error probability allowed in
+		a candidate group. Default is 1.
+	max_size : float
+		Maximum size of a group. Default is 25.
+	prenarrow : bool
+		If true, "prenarrows" the candidate groups
+		as described in the paper. Defaults to False.
+	"""
+	L, p = alphas.shape
+	np.random.seed(1)
+	# Start with sequential groups
+	cand_groups = sequential_groups(
+		susie_alphas=alphas, 
+		q=q,
+		max_pep=max_pep,
+		max_size=max_size,
+		prenarrow=prenarrow,
+	)
+	# Add hierarchical groups
+	if X is not None:
+		dist_matrix = np.abs(1 - np.corrcoef(X.T))
+		groups_to_add = _dist_matrix_to_groups(dist_matrix)
+	else:
+		groups_to_add = []
+
+	# Add groups discovered by susie
+	for j in range(L):
+		inds = np.argsort(-1*alphas[j])
+		k = np.min(np.where(np.cumsum(alphas[j,inds]) >= 1 - q))
+		groups_to_add.append(inds[0:(k+1)].tolist())
+
+	# Add these to cand_groups
+	groups_to_add = _dedup_list_of_lists(groups_to_add)
+	for g in groups_to_add:
+		if len(g) > max_size:
+			continue
+		if np.max(g) - np.min(g) == len(g) - 1:
+			continue
+		iter_peps = 1 - alphas[:,g].sum(axis=1)
+		iter_peps[iter_peps < MIN_PEP] = MIN_PEP # for numerical stability
+		pep = np.exp(np.log(iter_peps).sum())
+		if pep < max_pep:
+			cand_groups.append(CandidateGroup(
+				group=set(g), pep=pep
+			))
+
+	return cand_groups
+
+
 def _extract_groups(root):
 	"""
 	Extracts the set of all groups from a scipy hierarchical
@@ -137,7 +229,7 @@ def _extract_groups(root):
 	return output
 
 def _dedup_list_of_lists(x):
-	return list(set(tuple(i) for i in x))
+	return list(set(tuple(sorted(i)) for i in x))
 
 def _dist_matrix_to_groups(
 	dist_matrix
@@ -218,9 +310,7 @@ def hierarchical_groups(
 			continue
 		# Possibly filter out contiguous groups
 		if filter_sequential:
-			mingroup = min(group)
-			maxgroup = max(group)
-			if maxgroup - mingroup == gsize - 1:
+			if np.max(group) - np.min(group) == gsize - 1:
 				continue
 
 		pep = 1 - np.any(inclusions[:, group], axis=1).mean()
@@ -280,7 +370,5 @@ def _elim_redundant_features(cand_groups):
 
 	# return
 	return cand_groups, nrel
-
-
 
 
