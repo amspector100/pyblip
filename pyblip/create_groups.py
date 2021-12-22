@@ -215,17 +215,21 @@ def susie_groups(
 
 	return cand_groups
 
-
-def _extract_groups(root):
+def _extract_groups(root, p):
 	"""
 	Extracts the set of all groups from a scipy hierarchical
 	clustering tree.
 	"""
-	output = [root.pre_order()]
-	if root.left is not None:
-		output.extend(_extract_groups(root.left))
-	if root.right is not None:
-		output.extend(_extract_groups(root.right))
+	output = []
+	queue = []
+	queue.append(root)
+	while len(queue) > 0:
+		node = queue.pop(0)
+		if node.left is not None:
+			queue.append(node.left)
+		if node.right is not None:
+			queue.append(node.right)
+		output.append(node.pre_order())
 	return output
 
 def _dedup_list_of_lists(x):
@@ -238,6 +242,7 @@ def _dist_matrix_to_groups(
 	Creates groups based on corr_matrix using
 	single, average, and hierarchical clustering.
 	"""
+	p = dist_matrix.shape[0]
 	# prevent numerical errors
 	dist_matrix -= np.diag(np.diag(dist_matrix))
 	dist_matrix = (dist_matrix.T + dist_matrix) / 2
@@ -247,7 +252,7 @@ def _dist_matrix_to_groups(
 	all_groups = []
 	for cluster_func in [hierarchy.single, hierarchy.average, hierarchy.complete]:
 		link = cluster_func(condensed_dist_matrix)
-		groups = _extract_groups(hierarchy.to_tree(link))
+		groups = _extract_groups(hierarchy.to_tree(link), p=p)
 		all_groups.extend(groups)
 		# deduplicate
 		all_groups = _dedup_list_of_lists(all_groups)
