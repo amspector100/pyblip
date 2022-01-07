@@ -169,21 +169,19 @@ def _sample_linear_spikeslab(
 					num_active += 1
 			# sample p0
 			if min_p0 == 0:
-				p0s[i] = np.random.beta(p - num_active, p0_b0 + num_active)
+				p0s[i] = np.random.beta(
+					p0_a0 + p - num_active, p0_b0 + num_active
+				)
 			else:
 				# rejection sampling
 				p0_proposals = np.random.beta(
-					p - num_active, p0_b0 + num_active, size=max_nprop
+					p0_a0 + p - num_active, p0_b0 + num_active, size=max_nprop
 				) # batching the proposals is more efficient 
 				p0s[i] = min_p0
 				for j in range(max_nprop):
 					if p0_proposals[j] > min_p0:
 						p0s[i] = p0_proposals[j]
 						break
-
-			# p0s[i] = fmax(min_p0, np.random.beta(
-			# 	p0_a0 + p - num_active, p0_b0 + num_active
-			# ))
 			logodds = log(p0s[i]) - log(1 - p0s[i])
 
 		# possibly resample sigma2

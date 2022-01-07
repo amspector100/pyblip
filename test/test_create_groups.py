@@ -86,7 +86,7 @@ class TestCandGroups(CheckCandGroups):
 			self.check_unique(cand_groups)
 
 		# Check that prenarrowing works
-		q = 0.5
+		q = 0.9
 		max_pep = 0.5
 		cand_groups = create_groups.sequential_groups(
 			inclusions, prenarrow=True, q=q, max_pep=max_pep
