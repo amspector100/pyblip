@@ -188,7 +188,7 @@ def susie_groups(
 	# Add hierarchical groups
 	if X is not None:
 		dist_matrix = np.abs(1 - np.corrcoef(X.T))
-		groups_to_add = _dist_matrix_to_groups(dist_matrix)
+		groups_to_add = _dist_matrices_to_groups(dist_matrix)
 	else:
 		groups_to_add = []
 
@@ -235,28 +235,51 @@ def _extract_groups(root, p):
 def _dedup_list_of_lists(x):
 	return list(set(tuple(sorted(i)) for i in x))
 
-def _dist_matrix_to_groups(
-	dist_matrix
+def _dist_matrices_to_groups(
+	dist_matrices,
+	cluster_funcs=None,
 ):
 	"""
 	Creates groups based on corr_matrix using
 	single, average, and hierarchical clustering.
 	"""
-	p = dist_matrix.shape[0]
-	# prevent numerical errors
-	dist_matrix -= np.diag(np.diag(dist_matrix))
-	dist_matrix = (dist_matrix.T + dist_matrix) / 2
-	# turn into scipy format
-	condensed_dist_matrix = ssd.squareform(dist_matrix)
-	# Run hierarchical clustering
+	if isinstance(dist_matrices, np.ndarray):
+		dist_matrices = [dist_matrices]
+	p = dist_matrices[0].shape[0]
 	all_groups = []
-	for cluster_func in [hierarchy.single, hierarchy.average, hierarchy.complete]:
-		link = cluster_func(condensed_dist_matrix)
-		groups = _extract_groups(hierarchy.to_tree(link), p=p)
-		all_groups.extend(groups)
-		# deduplicate
-		all_groups = _dedup_list_of_lists(all_groups)
+	if cluster_funcs is None:
+		cluster_funcs = [hierarchy.single, hierarchy.average, hierarchy.complete]
+	for dist_matrix in dist_matrices:
+		# prevent numerical errors
+		dist_matrix -= np.diag(np.diag(dist_matrix))
+		#lower_inds = np.tril_indices(p, -1)
+		#dist_matrix[lower_inds] = dist_matrix.T[lower_inds]
+		dist_matrix = (dist_matrix.T + dist_matrix) / 2
+		# turn into scipy format
+		condensed_dist_matrix = ssd.squareform(dist_matrix)
+		# Run hierarchical clustering
+		all_groups = []
+		for cluster_func in cluster_funcs:
+			link = cluster_func(condensed_dist_matrix)
+			groups = _extract_groups(hierarchy.to_tree(link), p=p)
+			all_groups.extend(groups)
+			# deduplicate
+			all_groups = _dedup_list_of_lists(all_groups)
 	return all_groups
+
+def _inclusions_dist_matrix(inclusions):
+	p = inclusions.shape[1]
+	precorr = np.concatenate(
+		[
+			inclusions,
+			np.zeros((1, p)),
+			np.ones((1, p))
+		],
+		axis=0
+	)
+	corr_matrix = np.corrcoef(precorr.T)
+	dist_matrix = corr_matrix + 1
+	return dist_matrix
 
 def hierarchical_groups(
 	inclusions,
@@ -264,6 +287,7 @@ def hierarchical_groups(
 	max_pep=1,
 	max_size=25,
 	filter_sequential=False,
+	**kwargs
 ):
 	"""
 	Parameters
@@ -272,8 +296,9 @@ def hierarchical_groups(
 		An ``(N, p)``-shaped array of posterior samples,
 		where a nonzero value indicates the presence of a signal.
 	dist_matrix : np.ndarray
-		square numpy array corresponding to distances between locations.
-		This is used to hierarchically cluster the groups.
+		a square numpy arrays corresponding to distances between locations,
+		used to hierarchically cluster the groups. Can also be a list of
+		different distance matrices.
 	max_pep : float
 		The maximum posterior error probability allowed in
 		a candidate group. Default is 1.
@@ -294,19 +319,11 @@ def hierarchical_groups(
 	# Estimate cov matrix from inclusions if 
 	# concatenations ensure no inclusions are all zero or one
 	if dist_matrix is None:
-		precorr = np.concatenate(
-			[
-				inclusions,
-				np.zeros((1, p)),
-				np.ones((1, p))
-			],
-			axis=0
-		)
-		corr_matrix = np.corrcoef(precorr.T)
-		dist_matrix = corr_matrix + 1
+		dist_matrix = _inclusions_dist_matrix(inclusions)
+
 
 	# Create groups
-	groups = _dist_matrix_to_groups(dist_matrix)
+	groups = _dist_matrices_to_groups(dist_matrix, **kwargs)
 	# Create candidate group objects
 	cand_groups = []
 	for group in groups:
@@ -325,6 +342,56 @@ def hierarchical_groups(
 			)
 
 	return cand_groups
+
+def all_cand_groups(
+	inclusions,
+	X=None,
+	q=0,
+	max_pep=1,
+	max_size=25,
+	prenarrow=True,
+	prefilter_thresholds=[0, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2]
+):
+	"""
+	Throws the kitchen sink at the problem and includes a very
+	large number of candidate groups.
+	"""
+	inclusions = inclusions != 0
+	marg_pips = np.mean(inclusions, axis=0)
+
+	# pre-filter features at various levels
+	all_groups = set()
+	all_cgs = []
+	for thresh in prefilter_thresholds:
+		rel_features = np.where(marg_pips > thresh)[0]
+		# Sequential groups
+		cgs = sequential_groups(
+			inclusions[:, rel_features],
+			q=q,
+			max_pep=max_pep,
+			max_size=max_size,
+			prenarrow=prenarrow
+		)
+		# Distance matrices
+		dms = [_inclusions_dist_matrix(inclusions[:, rel_features])]
+		if X is not None:
+			dms.append(np.abs(1 - np.corrcoef(X[:, rel_features].T)))
+		cgs.extend(hierarchical_groups(
+			inclusions[:, rel_features],
+			dist_matrix=dms,
+			max_pep=max_pep,
+			max_size=max_size,
+			filter_sequential=True,
+		))
+		# Correct group indices and add to all cgs
+		for cg in cgs:
+			group = tuple(sorted(rel_features[list(cg.group)].tolist()))
+			if group not in all_groups:
+				cg.group = set(group)
+				all_groups = all_groups.union([group])
+				all_cgs.append(cg)
+
+	return all_cgs
 
 
 

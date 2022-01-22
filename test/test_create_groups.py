@@ -111,6 +111,25 @@ class TestCandGroups(CheckCandGroups):
 			"number of relevant features is should be 4 but equals {nrel}"
 		)
 
+	def test_all_groups(self):
+		# generate fake inclusions
+		n = 1000
+		p = 500
+		probs = np.random.beta(0.4, 0.4, size=(p,))
+		inclusions = np.random.binomial(
+			1, probs, size=(n,p)
+		)
+		X = np.random.randn(n,p)
+		# get all groups
+		cgs = create_groups.all_cand_groups(
+			inclusions=inclusions, 
+			X=X,
+			prenarrow=False,
+			max_pep=1
+		)
+		# Check that no groups are repeated
+		self.check_unique(cgs)
+
 	def test_hierarchical_groups(self):
 		
 		# Generate fake data
