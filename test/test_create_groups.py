@@ -129,6 +129,15 @@ class TestCandGroups(CheckCandGroups):
 		)
 		# Check that no groups are repeated
 		self.check_unique(cgs)
+		# check if there are issues with no nonnulls
+		inclusions = np.zeros((n, p))
+		cgs = create_groups.all_cand_groups(
+			inclusions=inclusions, 
+			X=X,
+			prenarrow=False,
+			max_pep=0.5
+		)
+		self.assertTrue(len(cgs) == 0, f"with all PEPs=1, len(cgs)={len(cgs)} but should be 0")
 
 	def test_hierarchical_groups(self):
 		

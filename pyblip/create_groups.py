@@ -364,6 +364,9 @@ def all_cand_groups(
 	all_cgs = []
 	for thresh in prefilter_thresholds:
 		rel_features = np.where(marg_pips > thresh)[0]
+		if len(rel_features) == 0:
+			continue
+
 		# Sequential groups
 		cgs = sequential_groups(
 			inclusions[:, rel_features],
@@ -384,12 +387,14 @@ def all_cand_groups(
 			filter_sequential=True,
 		))
 		# Correct group indices and add to all cgs
+		groups = []
 		for cg in cgs:
 			group = tuple(sorted(rel_features[list(cg.group)].tolist()))
 			if group not in all_groups:
 				cg.group = set(group)
-				all_groups = all_groups.union([group])
 				all_cgs.append(cg)
+				groups.append(group)
+		all_groups = all_groups.union(groups)
 
 	return all_cgs
 
