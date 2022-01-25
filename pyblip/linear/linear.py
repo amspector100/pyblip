@@ -6,6 +6,7 @@ from scipy import stats
 from knockpy.utilities import apply_pool ## get rid of this, deal with it later
 
 from ._linear import _sample_linear_spikeslab
+from ._linear_multi import _sample_linear_spikeslab_multi
 
 class LinearSpikeSlab():
 
@@ -47,7 +48,7 @@ class LinearSpikeSlab():
 		self.min_p0 = min_p0
 
 	def sample(
-		self, N, burn=100, chains=1, num_processes=1
+		self, N, burn=100, chains=1, num_processes=1, bsize=1,
 	):
 		"""
 		N : int
@@ -58,26 +59,36 @@ class LinearSpikeSlab():
 			Number of chains to run
 		num_processes : int
 			How many processes to use
+		bsize : int
+			Maximum block size within gibbs sampling. Defualt: 1.
 		"""
+		constant_inputs=dict(
+			X=self.X,
+			y=self.y,
+			tau2=self.tau2,
+			update_tau2=self.update_tau2,
+			tau2_a0=self.tau2_a0,
+			tau2_b0=self.tau2_b0,
+			sigma2=self.sigma2,
+			update_sigma2=self.update_sigma2,
+			sigma2_a0=self.sigma2_a0,
+			sigma2_b0=self.sigma2_b0,
+			p0=self.p0,
+			update_p0=self.update_p0,
+			min_p0=self.min_p0,
+			p0_a0=self.p0_a0,
+			p0_b0=self.p0_b0,
+		)
+		bsize = min(bsize, self.X.shape[1])
+		if bsize > 1:
+			fn = _sample_linear_spikeslab_multi
+			constant_inputs['bsize'] = bsize
+		else:
+			fn = _sample_linear_spikeslab
+
 		out = apply_pool(
-			_sample_linear_spikeslab,
-			constant_inputs=dict(
-				X=self.X,
-				y=self.y,
-				tau2=self.tau2,
-				update_tau2=self.update_tau2,
-				tau2_a0=self.tau2_a0,
-				tau2_b0=self.tau2_b0,
-				sigma2=self.sigma2,
-				update_sigma2=self.update_sigma2,
-				sigma2_a0=self.sigma2_a0,
-				sigma2_b0=self.sigma2_b0,
-				p0=self.p0,
-				update_p0=self.update_p0,
-				min_p0=self.min_p0,
-				p0_a0=self.p0_a0,
-				p0_b0=self.p0_b0,
-			),
+			fn,
+			constant_inputs=constant_inputs,
 			N=[N+burn for _ in range(chains)],
 			num_processes=num_processes
 		)
