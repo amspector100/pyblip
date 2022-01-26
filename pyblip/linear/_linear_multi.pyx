@@ -78,6 +78,7 @@ cdef int _weighted_choice(
 cdef int _precompute_suff_stats(
 	double[:, ::1] XT,
 	double[:, ::1] XAT,
+	double[:, ::1] XTX,
 	double[:, ::1] XATXA_cache,
 	double[::1] r,
 	double[::1] XATr_cache,
@@ -91,7 +92,7 @@ cdef int _precompute_suff_stats(
 	These are the only O(n) operations required
 	in the full loop, 
 	"""
-	cdef int ii, jj, j, INFO
+	cdef int ii, jj, jj2, j, j2, INFO
 	cdef int b2 = bsize * bsize
 
 	# 1. Loop through fill XAT. Note
@@ -111,21 +112,27 @@ cdef int _precompute_suff_stats(
 		ii += 1
 
 	# Step 2. Set XATXA_cache = np.dot(XAT, XA)
-	blas.dgemm(
-		trans_t, # transA
-		trans_n, # transB
-		&bsize, # M = op(A).shape[0]
-		&bsize, # N = op(B).shape[1]
-		&n, # K = op(A).shape[1] = op(B).shape[0]
-		&one, # alpha
-		&XAT[0,0], # A
-		&n, # LDA first dim of A in calling program
-		&XAT[0,0], # B
-		&n, # LDB first dim of B in calling program
-		&zero, # beta
-		&XATXA_cache[0,0], # C
-		&bsize, # first dim of C in calling program
-	)
+	for jj in range(bsize):
+		j = blocks[bi, jj]
+		for jj2 in range(bsize):
+			j2 = blocks[bi, jj2]
+			XATXA_cache[jj, jj2] = XTX[j, j2]
+
+	# blas.dgemm(
+	# 	trans_t, # transA
+	# 	trans_n, # transB
+	# 	&bsize, # M = op(A).shape[0]
+	# 	&bsize, # N = op(B).shape[1]
+	# 	&n, # K = op(A).shape[1] = op(B).shape[0]
+	# 	&one, # alpha
+	# 	&XAT[0,0], # A
+	# 	&n, # LDA first dim of A in calling program
+	# 	&XAT[0,0], # B
+	# 	&n, # LDB first dim of B in calling program
+	# 	&zero, # beta
+	# 	&XATXA_cache[0,0], # C
+	# 	&bsize, # first dim of C in calling program
+	# )
 
 	# Step 3. Set XATr_cache = np.dot(XAT, r)
 	blas.dgemm(
@@ -337,37 +344,31 @@ def _sample_linear_spikeslab_multi(
 		np.ndarray[double, ndim=1] beta_next_arr = np.zeros(bsize,)
 		double[::1] beta_next = beta_next_arr
 
-		# Scratch scalars for computing probs
+		# Misc. scratch scalars
 		double log_det_QA, exp_term, cm_scale
+		double old_betaj = 0
+		double neg_betaj
+		int num_active
 
 		# Precompute useful quantities 
 		double[:, ::1] XT = np.ascontiguousarray(X.T)
 		double logp0 = log(p0)
 		double log1p0 = log(1 - p0)
 
-		# scratch
-		double old_betaj = 0
-		double neg_betaj
-		double XjTr, log_ratio_num, log_ratio_denom
-		double u, ratio, kappa, delta
-		int num_active
-
 		# Proposals, only used if min_p0 > 0
 		int max_nprop = 100
 		np.ndarray[double, ndim=1] p0_proposal_arr = np.zeros(max_nprop,)
 		double[::1] p0_proposals = p0_proposal_arr
 
-		# for sigma2 updates
-		double r2, sigma_b
+		# for sigma2 /tau2 updates
+		double r2, sigma_b, sample_var
 
-		# for tau2 updates
-		double sample_var
-
-		# Initialize mu (predictions) and r (residuals)
-		# np.ndarray[double, ndim=1] mu_arr = np.dot(X, betas_arr[0])
-		# double[::1] mu = mu_arr
+		# Initialize r (residuals)
 		np.ndarray[double, ndim=1] r_arr = y - np.dot(X, betas_arr[0])
 		double[::1] r = r_arr
+
+	# Cache XTX
+	cdef double[:, ::1] XTX = np.dot(X.T, X)
 
 	# precompute sigma2 posterior variance
 	cdef double sigma_a = n / 2.0 + sigma2_a0
@@ -395,8 +396,9 @@ def _sample_linear_spikeslab_multi(
 		model_combs.extend(combinations(model_inds, msize))
 
 	for i in range(N):
-		# update beta
+		# shuffle blocks and shift by one
 		np.random.shuffle(blocks_arr)
+		blocks_arr = (blocks_arr + 1) % p
 		for bi in range(nblock):
 			# Reset residuals to zero out betas in this block
 			for bj in range(bsize):
@@ -415,6 +417,7 @@ def _sample_linear_spikeslab_multi(
 			_precompute_suff_stats(
 				XT=XT,
 				XAT=XAT,
+				XTX=XTX,
 				XATXA_cache=XATXA_cache,
 				r=r,
 				XATr_cache=XATr_cache,
