@@ -15,8 +15,6 @@ from libc.math cimport log, exp, fabs, sqrt, fmax, erfc
 
 # Fast uniform sampling
 from ..cython_utils._truncnorm import random_uniform
-
-# This is compiled so it is fast
 from itertools import combinations
 
 # Blas commonly used parameters
@@ -31,29 +29,26 @@ cdef char* triang_r = 'R'
 cdef double M_SQRT1_2 = sqrt(0.5)
 
 @cython.wraparound(False)
-@cython.boundscheck(True)
-@cython.nonecheck(True)
+@cython.boundscheck(False)
+@cython.nonecheck(False)
 @cython.cdivision(True)
 cdef int _zero_XAT(
 	double[:, ::1] XAT,
-	int msize,
-	int n,
-
+	int bsize,
+	int n
 ):
 	"""
 	Fills XAT with zeros.
-	TODO could use dtrmm with alpha = 0.
-	Also, the loop in ii is unecessary.
 	"""
-	for ii in range(msize):
-		blas.daxpy(
-			&n,
-			&neg1,
-			&XAT[ii,0],
-			&inc_1,
-			&XAT[ii,0],
-			&inc_1
-		)
+	cdef int nb = n * bsize
+	blas.daxpy(
+		&nb,
+		&neg1,
+		&XAT[0,0],
+		&inc_1,
+		&XAT[0,0],
+		&inc_1
+	)
 	return 0
 
 cdef int _weighted_choice(
@@ -79,40 +74,30 @@ cdef int _weighted_choice(
 		if cumsum >= u:
 			return ii
 
-cdef double _compute_XA_QA(
+
+cdef int _precompute_suff_stats(
 	double[:, ::1] XT,
 	double[:, ::1] XAT,
-	double[:, ::1] XATXA,
+	double[:, ::1] XATXA_cache,
 	double[::1] r,
-	double[::1] mu,
-	double[::1] XATr,
-	double[:, ::1] QA,
+	double[::1] XATr_cache,
 	long[:, ::1] blocks,
-	tuple model_comb,
 	int bi,
 	int n,
 	int bsize,
-	double tau2,
-	double sigma2,
-	# np.ndarray[double, ndim=2] QA_arr, 	## For debugging
-	# np.ndarray[double, ndim=2] XATXA_arr,
-	# np.ndarray[double, ndim=2] XAT_arr,
-	# np.ndarray[double, ndim=2] X,
 ):
 	"""
-	Fills XAT based on the indices from blocks
-
+	Computes XATXA and XATr for the full model.
+	These are the only O(n) operations required
+	in the full loop, 
 	"""
-	cdef int msize = len(model_comb)
-	# Step 1. Assemble XA
-	cdef int ii = 0
-	cdef int jj = 0
-	cdef int j = 0
-	cdef int INFO = 0
+	cdef int ii, jj, j, INFO
 	cdef int b2 = bsize * bsize
-	cdef double cm_scale
 
-	for jj in model_comb:
+	# 1. Loop through fill XAT. Note
+	# XAT is initialized to all zeros.
+	ii = 0
+	for jj in range(bsize):
 		j = blocks[bi, jj]
 		# Set XA[:, ii] = X[:, j]
 		blas.daxpy(
@@ -125,12 +110,12 @@ cdef double _compute_XA_QA(
 		)
 		ii += 1
 
-	# Step 2. Set XATXA = np.dot(XAT, XA)
+	# Step 2. Set XATXA_cache = np.dot(XAT, XA)
 	blas.dgemm(
 		trans_t, # transA
 		trans_n, # transB
-		&msize, # M = op(A).shape[0]
-		&msize, # N = op(B).shape[1]
+		&bsize, # M = op(A).shape[0]
+		&bsize, # N = op(B).shape[1]
 		&n, # K = op(A).shape[1] = op(B).shape[0]
 		&one, # alpha
 		&XAT[0,0], # A
@@ -138,9 +123,69 @@ cdef double _compute_XA_QA(
 		&XAT[0,0], # B
 		&n, # LDB first dim of B in calling program
 		&zero, # beta
-		&XATXA[0,0], # C
+		&XATXA_cache[0,0], # C
 		&bsize, # first dim of C in calling program
 	)
+
+	# Step 3. Set XATr_cache = np.dot(XAT, r)
+	blas.dgemm(
+		trans_t, # transA
+		trans_n, # transB
+		&bsize, # M = op(A).shape[0]
+		&inc_1, # N = op(B).shape[1]
+		&n, # K = op(A).shape[1] = op(B).shape[0]
+		&one, # alpha
+		&XAT[0,0], # A
+		&n, # LDA first dim of A in calling program
+		&r[0], # B
+		&n, # LDB first dim of B in calling program
+		&zero, # beta
+		&XATr_cache[0], # C
+		&bsize, # first dim of C in calling program
+	)
+
+	return 0
+
+
+
+cdef double _compute_QA(
+	double[:, ::1] XATXA,
+	double[:, ::1] XATXA_cache,
+	double[::1] mu,
+	double[::1] XATr,
+	double[::1] XATr_cache,
+	double[:, ::1] QA,
+	tuple model_comb,
+	int bi,
+	int bsize,
+	double tau2,
+	double sigma2,
+):
+	"""
+	Fills XATr, XATXA based on the indices from blocks.
+	Also fills mu and computes QA.
+	"""
+	cdef int msize = len(model_comb)
+	# Step 1. Assemble XA
+	cdef int ii, jj, ii2, jj2, j, INFO
+	cdef int b2 = bsize * bsize
+	cdef double cm_scale
+
+	# 1. Fill XATr based on XATr_cache
+	ii = 0
+	for jj in model_comb:
+		XATr[ii] = XATr_cache[jj]
+		ii += 1
+
+	# 2. Fill XATXA based on XATXA_cache
+	ii = 0
+	for jj in model_comb:
+		ii2 = 0
+		for jj2 in model_comb:
+			XATXA[ii, ii2] = XATXA_cache[jj, jj2]
+			ii2 += 1
+		ii += 1
+
 	# Set QA to the identity
 	for ii in range(msize):
 		for jj in range(msize):
@@ -158,10 +203,6 @@ cdef double _compute_XA_QA(
 		&QA[0,0],
 		&inc_1,
 	)
-
-	# # Update diagonal of QA
-	# for jj in range(msize):
-	# 	QA[jj, jj] += tau2 / sigma2
 
 	# Step 3: QA = cholesky decomp of QA
 	lapack.dpotrf(
@@ -190,26 +231,9 @@ cdef double _compute_XA_QA(
 		&INFO # error output
 	)
 
-	# Step 5: XATr = np.dot(XAT, r)
-	blas.dgemm(
-		trans_t, # transA
-		trans_n, # transB
-		&msize, # M = op(A).shape[0]
-		&inc_1, # N = op(B).shape[1]
-		&n, # K = op(A).shape[1] = op(B).shape[0]
-		&one, # alpha
-		&XAT[0,0], # A
-		&n, # LDA first dim of A in calling program
-		&r[0], # B
-		&n, # LDB first dim of B in calling program
-		&zero, # beta
-		&XATr[0], # C
-		&bsize, # first dim of C in calling program
-	)
-
-	### FOR DEBUGGING DELETE LATER
-	if INFO != 0:
-		raise RuntimeError(f"dtrtri exited with INFO={INFO}. Try setting bsize=1.")
+	# ### FOR DEBUGGING DELETE LATER
+	# if INFO != 0:
+	# 	raise RuntimeError(f"dtrtri exited with INFO={INFO}. Try setting bsize=1.")
 
 	# Step 6: set mu = np.dot(QA, XATr)
 	for jj in range(msize):
@@ -232,8 +256,8 @@ cdef double _compute_XA_QA(
 
 
 @cython.wraparound(False)
-@cython.boundscheck(True)
-@cython.nonecheck(True)
+@cython.boundscheck(False)
+@cython.nonecheck(False)
 @cython.cdivision(True)
 def _sample_linear_spikeslab_multi(
 	int N,
@@ -284,10 +308,20 @@ def _sample_linear_spikeslab_multi(
 		double[::1] model_probs = np.zeros(nmodel,) # P(A = J0) in notation of paper
 		double[::1] model_lprobs = np.zeros(nmodel,) # log P(A = J0) in notation of paper
 		np.ndarray[long, ndim=1] model_inds = np.arange(bsize)
-		np.ndarray[double, ndim=2] XAT_arr = np.zeros((bsize, n)) # can delete after debugging done
+		np.ndarray[double, ndim=2] XAT_arr = np.zeros((bsize, n))
 		double[:, ::1] XAT = XAT_arr
+
+		# Sufficient statistics. The caches store precomputed values for the full bsize model
+		# and then the other arrays get filled with submodels.
+		np.ndarray[double, ndim=2] XATXA_c = np.zeros((bsize, bsize))
+		double[:, ::1] XATXA_cache = XATXA_c
 		np.ndarray[double, ndim=2] XATXA_arr = np.zeros((bsize, bsize))
 		double[:, ::1] XATXA = XATXA_arr
+		np.ndarray[double, ndim=1] XATr_c = np.zeros(bsize)
+		double[::1] XATr_cache = XATr_c
+		np.ndarray[double, ndim=1] XATr_arr = np.zeros(bsize)
+		double[::1] XATr = XATr_arr
+
 		# matrix QA from paper
 		np.ndarray[double, ndim=2] QA_arr = np.zeros((bsize, bsize)) # can delete after debugging done
 		double[:, ::1] QA = QA_arr
@@ -303,29 +337,13 @@ def _sample_linear_spikeslab_multi(
 		np.ndarray[double, ndim=1] beta_next_arr = np.zeros(bsize,)
 		double[::1] beta_next = beta_next_arr
 
-		# # This matrix equals np.dot(XAT, LA^{-1}) where LA is cholesky of QA
-		# np.ndarray[double, ndim=2] XATLAinv_arr = np.zeros((bsize, m))
-		# double[:, ::1] XATLAinv = XATLAinv_arr
-		XATr_arr = np.zeros(bsize)
-		double[::1] XATr = XATr_arr
-
-
 		# Scratch scalars for computing probs
 		double log_det_QA, exp_term, cm_scale
 
-		# Scratch for sampling from multivariate normal dist
-		# of non-null coefficients by block
-		double[::1] noise = np.zeros(bsize)
-
-
-
 		# Precompute useful quantities 
 		double[:, ::1] XT = np.ascontiguousarray(X.T)
-		double[::1] Xl2 = np.power(X, 2).sum(axis=0)
-		double[::1] logdets = np.zeros((p, ))
 		double logp0 = log(p0)
 		double log1p0 = log(1 - p0)
-		double[::1] post_vars = np.zeros((p,))
 
 		# scratch
 		double old_betaj = 0
@@ -377,10 +395,6 @@ def _sample_linear_spikeslab_multi(
 		model_combs.extend(combinations(model_inds, msize))
 
 	for i in range(N):
-		# # precompute log determinants / posterior variances
-		# for j in range(p):
-		# 	logdets[j] = log(1.0 + tau2s[i] * Xl2[j] / sigma2s[i]) / 2.0
-		# 	post_vars[j] = 1.0 / (1.0 / tau2s[i] + Xl2[j] / sigma2s[i])
 		# update beta
 		np.random.shuffle(blocks_arr)
 		for bi in range(nblock):
@@ -394,6 +408,21 @@ def _sample_linear_spikeslab_multi(
 					blas.daxpy(&n, &old_betaj, &XT[j,0], &inc_1, &r[0], &inc_1)
 				betas[i, j] = 0
 
+			#print("I claim sum(abs(XAT_arr))==0", np.sum(np.abs(XAT_arr)))
+			_zero_XAT(XAT, bsize, n)
+
+			# Precompute sufficient statistics
+			_precompute_suff_stats(
+				XT=XT,
+				XAT=XAT,
+				XATXA_cache=XATXA_cache,
+				r=r,
+				XATr_cache=XATr_cache,
+				blocks=blocks,
+				bi=bi,
+				n=n,
+				bsize=bsize,
+			)
 
 			# Loop through models to compute P(A = J).
 			# First model (all zeros) is easy
@@ -402,26 +431,18 @@ def _sample_linear_spikeslab_multi(
 			for mj in range(1, nmodel):
 				model_comb = model_combs[mj-1]
 				msize = len(model_comb)
-				log_det_QA = _compute_XA_QA(
-					XT=XT,
-					XAT=XAT,
+				log_det_QA = _compute_QA(
 					XATXA=XATXA,
+					XATXA_cache=XATXA_cache,
 					QA=QA,
-					r=r,
 					mu=mu,
 					XATr=XATr,
-					blocks=blocks,
+					XATr_cache=XATr_cache,
 					model_comb=model_comb,
 					bi=bi,
-					n=n,
 					bsize=bsize,
 					tau2=tau2s[i],
 					sigma2=sigma2s[i],
-					### For debugging delete later
-					#X=X,
-					#QA_arr=QA_arr,
-					#XAT_arr=XAT_arr,
-					#XATXA_arr=XATXA_arr
 				)
 
 				# Compute exp term
@@ -472,12 +493,6 @@ def _sample_linear_spikeslab_multi(
 				# print("my cholesky", np.linalg.cholesky(QA_guess[0:msize][:, 0:msize]))
 				# print(f"msize={len(model_combs[mj-1])}, xatrdiff={XATr_arr-np.dot(XAT_arr, r_arr)}")
 
-				# Finally, zero out XAT. unclear if this is more efficient than double loop
-				_zero_XAT(XAT, len(model_combs[mj-1]), n)				
-				# ### FOR DEBUGGING DELETE LATER
-				# print("I claim sum(abs(XAT_arr))==0", np.sum(np.abs(XAT_arr)))
-
-
 			# Choose model
 			mj = _weighted_choice(
 				probs=model_probs, log_probs=model_lprobs, nmodel=nmodel
@@ -488,18 +503,15 @@ def _sample_linear_spikeslab_multi(
 				model_comb = model_combs[mj-1]
 				msize = len(model_comb)
 				# Compute inv cholesky of QA, XA, etc.
-				log_det_QA = _compute_XA_QA(
-					XT=XT,
-					XAT=XAT,
+				log_det_QA = _compute_QA(
 					XATXA=XATXA,
+					XATXA_cache=XATXA_cache,
 					QA=QA,
-					r=r,
 					mu=mu,
 					XATr=XATr,
-					blocks=blocks,
+					XATr_cache=XATr_cache,
 					model_comb=model_comb,
 					bi=bi,
-					n=n,
 					bsize=bsize,
 					tau2=tau2s[i],
 					sigma2=sigma2s[i],
@@ -756,8 +768,8 @@ def _sample_linear_spikeslab_multi(
 				# result = V_arr[0:msize][:, 0:msize]
 				# print(f"C5 V-expected=\n{result.T - expected}")
 
-				### Sample i.i.d. uniform normals
-				for jj in range(bsize):
+				### Sample i.i.d. std normals
+				for jj in range(msize):
 					beta_next[jj] = np.random.randn()
 				
 				### DEBUGGING ONLY save this
