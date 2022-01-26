@@ -104,6 +104,7 @@ def _sample_linear_spikeslab(
 	# initialize
 	sigma2s[0] = sigma2
 	tau2s[0] = tau2
+	p0s[0] = p0
 
 	for i in range(N):
 		# precompute log determinants / posterior variances
@@ -160,13 +161,14 @@ def _sample_linear_spikeslab(
 					&inc_1
 				)
 
+		# Calculate number of active variables
+		num_active = 0
+		for j in range(p):
+			if betas[i,j] != 0:
+				num_active += 1
+
 		# Resample p0s
 		if update_p0 == 1:
-			# Calculate number of active variables
-			num_active = 0
-			for j in range(p):
-				if betas[i,j] != 0:
-					num_active += 1
 			# sample p0
 			if min_p0 == 0:
 				p0s[i] = np.random.beta(

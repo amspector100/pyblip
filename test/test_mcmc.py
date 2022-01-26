@@ -10,6 +10,53 @@ from pyblip import linear, probit, nprior
 
 class TestMCMC(unittest.TestCase):
 
+	def test_conjugate_case(self):
+
+		np.random.seed(123)
+		n = 20
+		p = 3
+		tau2 = 1
+		sigma2 = 1
+		M = 10000
+		X, y, beta = context.generate_regression_data(
+			a=1, b=1, coeff_size=tau2, p=p, n=n, sparsity=1, coeff_dist='normal'
+		)
+		X = X - X.mean(axis=0)
+		# linear spike slab
+		lm = pyblip.linear.LinearSpikeSlab(
+			X=X, y=y, tau2=tau2, update_tau2=False, sigma2=sigma2, update_sigma2=False,
+			p0=0.000000001, update_p0=False
+		)
+		# Calculate analytical solution
+		Sigma11 = sigma2 * np.eye(n) + tau2 * np.dot(X, X.T)
+		Sigma12 = tau2 * X
+		Sigma22 = tau2 * np.eye(p)
+		Sigma = np.concatenate(
+			[np.concatenate([Sigma11, Sigma12], axis=1),
+			 np.concatenate([Sigma12.T, Sigma22], axis=1)],
+			axis=0
+		)
+		S11I = np.linalg.inv(Sigma11)
+		cond_mean = np.dot(np.dot(Sigma12.T, S11I), y)
+		cond_var = Sigma22 - np.dot(Sigma12.T, np.dot(S11I, Sigma12))
+
+		for bsize in [1, 2]:
+			lm.sample(N=M, bsize=bsize, burn=M)
+			post_mean = lm.betas.mean(axis=0)
+			np.testing.assert_array_almost_equal(
+				post_mean,
+				cond_mean,
+				decimal=2,
+				err_msg=f"post_mean={cond_mean} but posterior samples had mean {post_mean}."
+			)
+			post_var = np.cov(lm.betas.T)
+			np.testing.assert_array_almost_equal(
+				cond_var,
+				post_var,
+				decimal=2,
+				err_msg=f"post_var={post_var}, post samples had cov {post_var}"
+			)
+
 	def test_coeff_estimation(self):
 
 		# Sample data with high SNR

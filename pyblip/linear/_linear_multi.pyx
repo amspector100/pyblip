@@ -358,6 +358,7 @@ def _sample_linear_spikeslab_multi(
 	# initialize
 	sigma2s[0] = sigma2
 	tau2s[0] = tau2
+	p0s[0] = p0
 
 	# Initialize blocks
 	j = 0
@@ -455,7 +456,7 @@ def _sample_linear_spikeslab_multi(
 
 
 				# ### FOR DEBUGGING DELETE LATER
-				# minds = [blocks[bi,jj] for jj in model_comb]
+				minds = [blocks[bi,jj] for jj in model_comb]
 				# for ii, j in enumerate(minds):
 				# 	print("If XAT is right, this should be zero", np.abs(
 				# 		XAT_arr[ii,:]-X.T[j,:]).sum()
@@ -574,16 +575,29 @@ def _sample_linear_spikeslab_multi(
 				for ii in range(msize):
 					mu[ii] *= -1 * tau2s[i] / sigma2s[i]
 
-				# ### Debugging
-				# QA_guess = tau2s[i] / sigma2s[i] * np.dot(XAT_arr, XAT_arr.T) + np.eye(bsize)
-				# QA_guess = QA_guess[0:msize][:, 0:msize]
-				# QAI = np.linalg.inv(QA_guess)
-				# t1 = tau2s[i] * XATr_arr[0:msize] / sigma2s[i]
-				# t2 = np.dot(
-				# 	XATXA_arr[0:msize][:, 0:msize],
-				# 	np.dot(QAI, XATr_arr[0:msize])
+				# # # ### Debugging
+				# sigma2 = sigma2s[i]
+				# tau2 = tau2s[i]
+				# XA = XAT_arr.T[:, 0:msize]
+				# k = msize
+				# Sigma11 = sigma2 * np.eye(n) + tau2 * np.dot(XA, XA.T)
+				# Sigma12 = tau2 * XA
+				# Sigma22 = tau2 * np.eye(k)
+				# Sigma = np.concatenate(
+				# 	[np.concatenate([Sigma11, Sigma12], axis=1),
+				# 	np.concatenate([Sigma12.T, Sigma22], axis=1)],
+				# 	axis=0
 				# )
-				# expected = t1 - ((tau2s[i] / sigma2s[i])**2) * t2
+				# expected = np.dot(np.dot(Sigma12.T, np.linalg.inv(Sigma11)), r_arr)
+				# # QA_guess = tau2s[i] / sigma2s[i] * np.dot(XAT_arr, XAT_arr.T) + np.eye(bsize)
+				# # QA_guess = QA_guess[0:msize][:, 0:msize]
+				# # QAI = np.linalg.inv(QA_guess)
+				# # t1 = tau2s[i] * XATr_arr[0:msize] / sigma2s[i]
+				# # t2 = np.dot(
+				# # 	XATXA_arr[0:msize][:, 0:msize],
+				# # 	np.dot(QAI, XATr_arr[0:msize])
+				# # )
+				# # expected = t1 - ((tau2s[i] / sigma2s[i])**2) * t2
 				# print(f"H3 mu-expected={mu_arr[0:msize] - expected}, mu={mu_arr[0:msize]}, expected={expected}")
 
 				# Now compute conditional covariance
@@ -693,13 +707,29 @@ def _sample_linear_spikeslab_multi(
 					&V[0,0],
 					&inc_1,
 				)
-				# # ### DEBUGGING delete later
-				# QA_guess = tau2s[i] / sigma2s[i] * np.dot(XAT_arr, XAT_arr.T) + np.eye(bsize)
-				# QA_guess = QA_guess[0:msize][:, 0:msize]
-				# QAI = np.linalg.inv(QA_guess)
-				# XATXA_g = XATXA_arr[0:msize][:, 0:msize]
-				# expected = tau2s[i] * np.eye(msize) - tau2s[i] / (sigma2s[i]**2) * XATXA_g
-				# expected = expected + cm_scale * np.dot(XATXA_g, np.dot(QAI, XATXA_g))
+				# ### DEBUGGING delete later
+				# sigma2 = sigma2s[i]
+				# tau2 = tau2s[i]
+				# XA = XAT_arr.T[:, 0:msize]
+				# k = msize
+				# Sigma11 = sigma2 * np.eye(n) + tau2 * np.dot(XA, XA.T)
+				# Sigma12 = tau2 * XA
+				# Sigma22 = tau2 * np.eye(k)
+				# Sigma = np.concatenate(
+				# 	[np.concatenate([Sigma11, Sigma12], axis=1),
+				# 	np.concatenate([Sigma12.T, Sigma22], axis=1)],
+				# 	axis=0
+				# )
+				# expected = Sigma22 - np.dot(np.dot(Sigma12.T, np.linalg.inv(Sigma11)), Sigma12)
+				# # QA = np.eye(k) + tau2 / sigma2 * np.dot(XA.T, XA)
+				# # QAI = np.linalg.inv(QA)
+				# # XATXA = np.dot(XA.T, XA)
+				# # QA_guess = tau2s[i] / sigma2s[i] * np.dot(XAT_arr, XAT_arr.T) + np.eye(bsize)
+				# # QA_guess = QA_guess[0:msize][:, 0:msize]
+				# # QAI = np.linalg.inv(QA_guess)
+				# # XATXA_g = XATXA_arr[0:msize][:, 0:msize]
+				# # expected = tau2s[i] * np.eye(msize) - tau2s[i] / (sigma2s[i]**2) * XATXA_g
+				# # expected = expected + cm_scale * np.dot(XATXA_g, np.dot(QAI, XATXA_g))
 				# result = V_arr[0:msize][:, 0:msize]
 				# print(f"C4 V-expected=\n{result - expected}")
 
@@ -727,8 +757,8 @@ def _sample_linear_spikeslab_multi(
 				# print(f"C5 V-expected=\n{result.T - expected}")
 
 				### Sample i.i.d. uniform normals
-				for jj in range(msize):
-					beta_next[jj] = np.random.uniform()
+				for jj in range(bsize):
+					beta_next[jj] = np.random.randn()
 				
 				### DEBUGGING ONLY save this
 				beta_ns = beta_next.copy()
@@ -793,13 +823,14 @@ def _sample_linear_spikeslab_multi(
 				# diff = np.abs(r_arr - r_t).mean()
 				# print(f"msize={len(model_comb)}, bext_next={beta_next_arr[0:msize]}, i={i}, mean resid diff={diff}")
 
+		# Calculate number of active variables
+		num_active = 0
+		for j in range(p):
+			if betas[i,j] != 0:
+				num_active += 1
+
 		# Resample p0s
 		if update_p0 == 1:
-			# Calculate number of active variables
-			num_active = 0
-			for j in range(p):
-				if betas[i,j] != 0:
-					num_active += 1
 			# sample p0
 			if min_p0 == 0:
 				p0s[i] = np.random.beta(
@@ -838,8 +869,6 @@ def _sample_linear_spikeslab_multi(
 			tau2s[i] = (tau2_b0 + sample_var / 2.0) / np.random.gamma(
 				shape=tau2_a0 + float(num_active) / 2.0
 			)
-		else:
-			tau2s[i] = tau2
 
 		# Set new betas, p0s to be old values (temporarily)
 		if i != N - 1:
