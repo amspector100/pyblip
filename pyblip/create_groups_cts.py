@@ -11,6 +11,7 @@ import itertools
 from .utilities import elapsed
 from .create_groups import CandidateGroup
 from . import create_groups
+from collections import Counter
 
 TOL = 1e-10
 
@@ -44,7 +45,7 @@ def normalize_locs(locs):
 	return norm_locs, shifts, scales
 
 def _additional_circle_centers(
-	samples, centers, centers_set, radius, gsize
+	samples, centers, center_list, radius, gsize
 ):
 	N, d = samples.shape
 	radius2 = np.power(radius, 2)
@@ -58,11 +59,11 @@ def _additional_circle_centers(
 			included = np.power(samples - centers_new, 2).sum(axis=1) <= radius2
 			included = included & (np.max(centers_new, axis=1) < 1 + TOL)
 			included = included & (np.min(centers_new, axis=1) > -TOL)
-			centers_set = centers_set.union(
-				set(tuple(list(c)) for c in centers_new[included])
-			)
+			center_list.extend([
+				tuple(list(c)) for c in centers_new[included]
+			])
 
-	return centers_set
+	return center_list
 
 
 def _find_centers(
@@ -78,7 +79,7 @@ def _find_centers(
 
 	# Adjust to make centers and check for unexpected shapes
 	centers = corners + 1 / (2 * gsize)
-	centers_set = set(tuple(list(c)) for c in centers)
+	center_list = [tuple(list(c)) for c in centers]
 	if shape == 'circle':
 		# Radius of Eucliean balls
 		if d != 2:
@@ -93,15 +94,16 @@ def _find_centers(
 
 	# Add extra centers for circles only
 	if shape == 'circle' and N > 0:
-		centers_set = _additional_circle_centers(
-			samples, centers, centers_set, radius, gsize 
+		center_list = _additional_circle_centers(
+			samples, centers, center_list, radius, gsize 
 		)
 
-	return [tuple(np.around(center, 10)) + (radius,) for center in centers_set]
+	return [tuple(np.around(center, 10)) + (radius,) for center in center_list]
 
 def grid_peps(
 	locs,
 	grid_sizes,
+	count_signals=False,
 	extra_centers=None,
 	max_pep=0.25,
 	log_interval=None,
@@ -118,6 +120,8 @@ def grid_peps(
 		to a signal in a particular posterior sample. 
 	grid_sizes : list or np.ndarray
 		List of grid-sizes to split up the locations.
+	count_signals : bool
+		If True, the number of signals in each group is counted.
 	extra_centers : np.ndarray
 		A (ncenters, d)-dimensional array. At each resolution,
 		a candidate groups will be computed with centers at these
@@ -141,7 +145,6 @@ def grid_peps(
 	# Create PIPs
 	pips = dict()
 	N = locs.shape[0]
-	ndisc = locs.shape[1]
 	d = locs.shape[2]
 	if extra_centers is not None:
 		n_extra_cent = extra_centers.shape[0]
@@ -162,24 +165,45 @@ def grid_peps(
 		if extra_centers is not None and n_extra_cent > 0 and samples.shape[0] > 0:
 			dists = extra_centers.reshape(n_extra_cent, 1, d) - samples.reshape(1, -1, d)
 			if shape == 'square':
-				min_dists = np.abs(dists).max(axis=2).min(axis=1)
+				dists = np.abs(dists).max(axis=2)
 			else:
-				min_dists = np.sqrt(np.power(dists, 2).sum(axis=2).min(axis=1))
+				dists = np.sqrt(np.power(dists, 2).sum(axis=2))
+			min_dists = dists.min(axis=1)
 			for gsize in grid_sizes:
 				radius = 1 / (2*gsize)
 				if shape == 'circle':
 					radius = np.sqrt(d) * radius
 				for nc in np.where(min_dists <= radius)[0]:
 					key = tuple(extra_centers[nc]) + (radius,)
-					all_extra_centers.append(key)
+					# Just add this once if we are looking for the presence of a signal
+					if not count_signals:
+						all_extra_centers.append(key)
+					# else count num. signals in this region
+					else:
+						nsignals = np.sum(dists[nc] <= radius)
+						all_extra_centers.extend([key for _ in range(nsignals)])
 
 		# Update PIPs
-		final_centers = set(all_centers).union(set(all_extra_centers))
-		for key in final_centers:
-			if key not in pips:
-				pips[key] = 1 / N
-			else:
-				pips[key] += 1 / N
+		final_centers = all_centers + all_extra_centers
+		if not count_signals:
+			final_centers = set(final_centers)
+			for key in final_centers:
+				if key not in pips:
+					pips[key] = 1 / N
+				else:
+					pips[key] += 1 / N
+		else:
+			counter = Counter(final_centers)
+			for key in counter:
+				count = counter[key]
+				if key not in pips:
+					pips[key] = {count: 1 / N, 'pip': 1 / N}
+				else:
+					if count not in pips[key]:
+						pips[key][count] = 1 / N
+					else:
+						pips[key][count] += 1 / N
+					pips[key]['pip'] += 1 / N
 
 		if log_interval is not None:
 			if j % log_interval == 0:
@@ -188,9 +212,14 @@ def grid_peps(
 	# Filter
 	filtered_peps = {}
 	for key in pips.keys():
-		pep = 1 - pips[key]
-		if pep <= max_pep:
-			filtered_peps[key] = pep
+		if not count_signals:
+			pep = 1 - pips[key]
+			if pep <= max_pep:
+				filtered_peps[key] = pep
+		else:
+			pep = 1 - pips[key]['pip']
+			if pep <= max_pep:
+				filtered_peps[key] = pips[key]
 
 	return filtered_peps
 
