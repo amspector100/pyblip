@@ -5,6 +5,7 @@ from scipy import stats
 import unittest
 import pytest
 from .context import pyblip
+from collections import Counter
 from pyblip import create_groups, create_groups_cts
 
 class CheckCandGroups(unittest.TestCase):
@@ -19,7 +20,7 @@ class CheckCandGroups(unittest.TestCase):
 			f"groups={groups} appears to contain duplicates with len(dedup_groups)={len(dedup_groups)}"
 		)
 
-	def check_peps_correct(self, peps, x, y, radius, locs, shape):
+	def check_peps_correct(self, peps, x, y, radius, locs, shape, count_signals=False):
 		if shape != 'circle':
 			raise NotImplementedError("Only works for circles right now")
 		dists = np.sqrt(np.power(
@@ -29,13 +30,30 @@ class CheckCandGroups(unittest.TestCase):
 		expected_pep = 1 - pip
 		if expected_pep != 1:
 			key = (x, y, radius)
-			observed_pep = peps[key]
+			if not count_signals:
+				observed_pep = peps[key]
+			else:
+				observed_pep = 1 - peps[key]['pip']
 			np.testing.assert_almost_equal(
 				observed_pep, 
 				expected_pep,
 				decimal=5,
 				err_msg=f"PEP at {key} should be {expected_pep} but is {observed_pep}"
 			)
+			if count_signals:
+				signal_counts = np.sum(dists <= radius, axis=1)
+				counter = Counter(signal_counts.tolist())
+				for nsignal in counter:
+					if nsignal == 0:
+						continue
+					expected_prop = counter[nsignal] / len(signal_counts)
+					observed_prop = peps[key][nsignal]
+					np.testing.assert_almost_equal(
+						expected_prop, 
+						observed_prop,
+						decimal=5,
+						err_msg=f"Prop. nsignals={nsignal} at {key} should be {expected_prop} but is {observed_prop}"
+					)
 
 class TestCandGroups(CheckCandGroups):
 	"""
@@ -407,6 +425,44 @@ class TestCtsPEPs(CheckCandGroups):
 			cent_flag,
 			f'Final nodes are missing a node with the correct center/PEP'
 		)
+
+	def test_count_signals(self):
+
+		# Simple 2d example with 2 discoveries
+		locs = np.array([
+			[[0.5502, 0.4502], [0.5452, 0.4452]],
+			[[0.5502, 0.4502], [np.nan, np.nan]],
+			[[0.5502, 0.4502], [np.nan, np.nan]],
+			[[0.6082, 0.1502], [0.6082, 0.1503]],
+		])
+		# Run with one manual center added
+		xc1 = 0.55012
+		yc1 = 0.45012
+		peps = create_groups_cts.grid_peps(
+			locs, 
+			grid_sizes=[10, 100, 1000],
+			count_signals=True,
+			extra_centers=np.array([[xc1, yc1]]),
+			log_interval=1, 
+			max_pep=1,
+			shape='circle'
+		)
+		r1 = np.sqrt(2) / 20
+		r2 = np.sqrt(2) / 200
+		for x, y, radius in zip(
+			[0.55, 0.555, 0.65, 0.605,],
+			[0.45, 0.455, 0.15, 0.155,],
+			[r1, r2,r1, r2]
+		):
+			self.check_peps_correct(
+				peps=peps,
+				locs=locs,
+				x=x,
+				y=y,
+				radius=radius,
+				shape='circle',
+				count_signals=True,
+			)
 
 
 
