@@ -3,11 +3,11 @@ Creates candidate groups when signals could appear anywhere in a
 continuous d-dimensional space. 
 """
 import time
+import copy
 import numpy as np
 import networkx as nx
 
 import warnings
-import itertools
 from .utilities import elapsed
 from .create_groups import CandidateGroup
 from . import create_groups
@@ -223,12 +223,33 @@ def grid_peps(
 
 	return filtered_peps
 
+# def _postprocess_peps_count_signals(
+# 	filtered_peps,
+# 	max_pep=0.5,
+# 	cutoff=0.95,
+# ):
+# 	"""
+# 	Given the output of grid_peps with count_signals=True,
+# 	postprocesses the result. This is a helper function for
+# 	grid_peps_to_cand_groups.
+# 	"""
+# 	output = dict()
+# 	for key in filtered_peps.keys():
+# 		nsignals = [x for x in filtered_peps[key].keys() if x != 'pip']
+# 		props = [filtered_peps[key][n] for n in nsignals]
+# 		inds = np.argsort(props)
+
+
+
+
 def grid_peps_to_cand_groups(
 	filtered_peps, 
 	time0=None,
 	max_blip_size=1000,
 	verbose=False,
-	shape='square'
+	shape='square',
+	max_pep=1,
+	min_pep=0.001,
 ):
 	"""
 	Turns the output of the ``grid_peps`` function into
@@ -246,17 +267,31 @@ def grid_peps_to_cand_groups(
 		If True, will report progress over time. Default: False.
 	shape : string
 		One of ``square`` or ``circle``
+	max_pep : float
+		The maximum pep for candidate groups. Default: 1.
+	min_pep : float
+		Once we achieve a pep of this level for candidate groups,
+		we do not search to find peps any lower. Default: 0.001.
 	"""
 	if time0 is None:
 		time0 = time.time()
 
-	# Step 1: compute adjacency matrix
+	# Step 0: determine whether filtered_peps counts the number of signals or not
 	ngroups = len(filtered_peps)
 	if ngroups == 0:
 		return [], []
+	keys = sorted(filtered_peps.keys())
+	if isinstance(filtered_peps[keys[0]], dict):
+		count_signals = True
+		peps_arr = 1 - np.array([filtered_peps[k]['pip'] for k in keys])
+	else:
+		count_signals = False
+		peps_arr = np.array([filtered_peps[k] for k in keys])
+
+
+	# Step 1: compute adjacency matrix
 	if ngroups > 50000:
 		warnings.warn(f"Computing adjacency matrix may be too inefficient for {ngroups} candidate groups.")
-	keys = sorted(filtered_peps.keys())
 	d = len(keys[0]) - 1 # dimensionality of problem
 
 	if verbose:
@@ -269,7 +304,7 @@ def grid_peps_to_cand_groups(
 		# Extract centers of groups
 		centers[j] = np.array([k[j] for k in keys])
 		if centers[j].max() > 1 or centers[j].min() < 0:
-			print(f"{centers[j].max()}, {centers[j].min()}")
+			print(f"centers max = {centers[j].max()}, centers min = {centers[j].min()}")
 			raise ValueError("centers must be between 0 and 1 but this is not true")
 	# Find overlaps and add to constraints
 	radii = radii.astype(np.float32)
@@ -301,7 +336,6 @@ def grid_peps_to_cand_groups(
 		
 	# Step 3: construct cand_groups for BLiP
 	all_cand_groups = []
-	peps_arr = np.array([filtered_peps[k] for k in keys])
 	for component in merged_components:
 		component_cand_groups = []
 		for j in component:
@@ -310,13 +344,38 @@ def grid_peps_to_cand_groups(
 			for k in range(d):
 				data_dict[f'dim{k}'] = centers[k, j]
 			data_dict['center'] = centers[:, j].tolist()
-			component_cand_groups.append(
-				CandidateGroup(
-					group=group,
-					pep=peps_arr[j],
-					data=data_dict
+			# Add many candidate groups with varying confidence regions
+			# for the number of signals
+			if count_signals:
+				key = keys[j]
+				nsignals = np.array([
+					x for x in filtered_peps[key].keys() if x != 'pip'
+				])
+				props = np.array([filtered_peps[key][n] for n in nsignals])
+				inds = np.argsort(-1*props)
+				nsignals = nsignals[inds]
+				cumprops = np.cumsum(props[inds])
+				for ell in range(len(nsignals)):
+					if cumprops[ell] >= 1 - max_pep:
+						data_dict['nsignals'] = set(nsignals[0:ell].tolist())
+						component_cand_groups.append(
+							CandidateGroup(
+								group=group,
+								pep=1-cumprops[ell],
+								data=copy.deepcopy(data_dict)
+							)
+						)
+					if cumprops[ell] >= 1 - min_pep:
+						break
+						
+			else:
+				component_cand_groups.append(
+					CandidateGroup(
+						group=group,
+						pep=peps_arr[j],
+						data=data_dict
+					)
 				)
-			)
 		all_cand_groups.append(component_cand_groups)
 
 	# Return
