@@ -431,10 +431,7 @@ def _elim_redundant_features(cand_groups):
 		The number relevant features.
 	"""
 	# Step 1: find relevant features
-	active_features = set()
-	for cand_group in cand_groups:
-		group = set(cand_group.group)
-		active_features = active_features.union(group)
+	active_features = set([j for x in cand_groups for j in x.group])
 
 	# Step 2: change feature inds to save computation
 	nrel = len(active_features)

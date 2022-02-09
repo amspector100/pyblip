@@ -493,32 +493,82 @@ class TestCtsPEPs(CheckCandGroups):
 		# (3) The last two do not overlap
 
 		# (center_x, center_y, key) --> pep
-		peps = {
+		peps1 = {
 			(0.12, 0.15, 0.01):0.113,
 			(0.13, 0.16, 0.001):0.514, 
 			(0.25, 0.23, 0.011):0.153,
 			(0.25, 0.23, 0.053):0.0513,
 			(0.421, 0.493, 0.01414):0.0999,
 			(0.419, 0.522, 0.01):0.01,
-			#(0.419, 0.522, 0.05):0.001,
-			#(0.419, 0.522, 0.10):0.0,
+			(0.419, 0.522, 0.05):0.001,
+			(0.419, 0.522, 0.10):0.0,
 		}
-		cand_groups, _ = create_groups_cts.grid_peps_to_cand_groups(
-			filtered_peps=peps, verbose=True, shape='circle'
-		)
-		self.assertTrue(
-			len(cand_groups) == 1,
-			f"In simple ex, there are {len(cand_groups)} components, but should only be one."
-		)
-		self.check_cand_groups_correct(
-			cand_groups[0], shape='circle'
-		)
-		print(cand_groups[0])
-		print([x.group for x in cand_groups[0]])
-		print(sorted(list(set([j for x in cand_groups[0] for j in x.group]))))
-		raise ValueError()
-		
 
+		# Similar example when counting the number of signals
+		peps2 = {
+			(0.12, 0.15, 0.01):{'pip':0.993, 1:0.5, 2:0.4, 3:0.01},
+			(0.13, 0.16, 0.0001):{'pip':0.134, 1:0.0213, 2:0.09234, 3:0.01},
+			(0.25, 0.23, 0.011):{'pip':0.368, 1:0.1267, 2:0.4, 3:0.2},
+			(0.25, 0.23, 0.053):{'pip':0.456, 1:0.1674, 2:0.168, 3:0.9},
+			(0.421, 0.493, 0.01414):{'pip':0.345, 1:0.2347, 2:0.4, 3:0.4},
+		}
+
+		# Random example to really test things
+		peps3 = dict()
+		for j in range(100):
+			key = tuple(np.around(np.random.uniform(size=(3,)), 5))
+			pep = np.random.uniform()
+			peps3[key] = pep
+
+		# Test all of these examples
+		for peps in [peps1, peps2, peps3]:
+			cand_groups, _ = create_groups_cts.grid_peps_to_cand_groups(
+				filtered_peps=peps, verbose=True, shape='circle'
+			)
+			self.assertTrue(
+				len(cand_groups) == 1,
+				f"In simple ex, there are {len(cand_groups)} components, but should only be one."
+			)
+			self.check_cand_groups_correct(
+				cand_groups[0], shape='circle'
+			)
+
+		# Lastly, test that this finds the optimal number of locations
+		peps1 = {
+			(0.12, 0.15, 0.01):0,
+			(0.12, 0.15, 0.02):0,
+			(0.12, 0.15, 0.03):0,
+			(0.12, 0.15, 0.04):0,
+			(0.12, 0.15, 0.05):0,
+			(0.12, 0.15, 0.06):0,
+		}
+		peps2 = {
+			(0.12, 0.15, 0.01):0,
+			(0.12, 0.15, 0.02):0,
+			(0.12, 0.15, 0.05):0,
+			(0.20, 0.20, 0.05):0,
+			(0.20, 0.20, 0.001):0,
+			(0.20, 0.20, 0.002):0,
+		}
+		opt_nlocs = [1, 3]
+		for peps, opt_nloc  in zip([peps1, peps2], opt_nlocs):
+			cand_groups, _ = create_groups_cts.grid_peps_to_cand_groups(
+				filtered_peps=peps, verbose=True, shape='circle'
+			)
+			# Run previous tests for good measure
+			self.assertTrue(
+				len(cand_groups) == 1,
+				f"In simple ex, there are {len(cand_groups)} components, but should only be one."
+			)
+			self.check_cand_groups_correct(
+				cand_groups[0], shape='circle'
+			)
+			# Check number of locations
+			nloc = len(set([j for x in cand_groups[0] for j in x.group]))
+			self.assertTrue(
+				nloc == opt_nloc,
+				f"In simple ex, there are {nloc} locations, but optimal number is {opt_nloc}."
+			)
 
 
 if __name__ == "__main__":

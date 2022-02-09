@@ -323,7 +323,6 @@ def grid_peps_to_cand_groups(
 		raise ValueError(f"Unrecognized shape={shape}, must be one of 'square', 'circle'")
 
 
-
 	# Step 2: Split problem into connected components
 	if verbose:
 		print(f"Isolating connected components at {elapsed(time0)}")
@@ -334,19 +333,28 @@ def grid_peps_to_cand_groups(
 		if len(merged_components[-1]) + len(c) > max_blip_size:
 			merged_components.append([])
 		merged_components[-1].extend(list(c))
+	del G # save memory
 		
 	# Step 3: construct cand_groups for BLiP
 	all_cand_groups = []
-	for component in merged_components:
+	for compnum, component in enumerate(merged_components):
 		component_cand_groups = []
-		for j in component:
-			# Construct group.
-			# Overlap between j and jj counts as "location" min(jj, j) + max(jj, j) * p
-			overlaps = np.where(constraints[j])[0].tolist()
-			group = []
-			for jj in overlaps:
-				group.append(min(j, jj) + max(j,jj) * ngroups)
-			group = set(group)
+		component_groups = [[] for _ in component]
+		subG = nx.Graph(constraints[component, :][:, component])
+		# Construct groups for BLiP using as few locations as possible.
+		# This is related to the problem of listing the maximal cliques of
+		# subG. 
+		if verbose:
+			print(f"Finding list of cliques for component {compnum} / {len(merged_components)} with dim {len(component)} at {elapsed(time0)}")
+		cliques = nx.algorithms.clique.find_cliques(subG)
+		for cliquenum, clique in enumerate(cliques):
+			for j in clique:
+				component_groups[j].append(cliquenum)
+		if verbose:
+			print(f"Finished finding cliques, constructing cand_groups at {elapsed(time0)}")
+
+		for ii, j in enumerate(component):
+			group = set(component_groups[ii])
 			data_dict = dict(radius=radii[j])
 			for k in range(d):
 				data_dict[f'dim{k}'] = centers[k, j]
