@@ -54,6 +54,26 @@ class CheckCandGroups(unittest.TestCase):
 						decimal=5,
 						err_msg=f"Prop. nsignals={nsignal} at {key} should be {expected_prop} but is {observed_prop}"
 					)
+		
+	def check_cand_groups_correct(self, cand_groups, shape):
+		if shape != 'circle':
+			raise NotImplementedError("Only works for circles currently")
+		# Check that overlap calculations are correct
+		for cg1 in cand_groups:
+			g1 = cg1.group
+			for cg2 in cand_groups:
+				g2 = cg2.group
+				if len(g1.intersection(g2)) > 0:
+					c1 = np.array(cg1.data['center'])
+					c2 = np.array(cg2.data['center'])
+					dist = np.sqrt(np.sum(np.power(c1-c2, 2)))
+					r1, r2 =  cg1.data['radius'], cg2.data['radius']
+					self.assertTrue(
+						dist < r1 + r2,
+						f"""
+						BLiP posits c1, c2 groups ({g1}, {g2}) overlap. Centers= {c1} and {c2} with dist={dist} and r1={r1} and r2={r2}.
+						"""
+					)
 
 class TestCandGroups(CheckCandGroups):
 	"""
@@ -464,6 +484,40 @@ class TestCtsPEPs(CheckCandGroups):
 				count_signals=True,
 			)
 
+	def test_grid_peps_to_cand_groups(self):
+
+		# Notes:
+		# (1) The first two overlap if they are rectangles, but not if
+		# they are circles.
+		# (2) The second two do overlap
+		# (3) The last two do not overlap
+
+		# (center_x, center_y, key) --> pep
+		peps = {
+			(0.12, 0.15, 0.01):0.113,
+			(0.13, 0.16, 0.001):0.514, 
+			(0.25, 0.23, 0.011):0.153,
+			(0.25, 0.23, 0.053):0.0513,
+			(0.421, 0.493, 0.01414):0.0999,
+			(0.419, 0.522, 0.01):0.01,
+			#(0.419, 0.522, 0.05):0.001,
+			#(0.419, 0.522, 0.10):0.0,
+		}
+		cand_groups, _ = create_groups_cts.grid_peps_to_cand_groups(
+			filtered_peps=peps, verbose=True, shape='circle'
+		)
+		self.assertTrue(
+			len(cand_groups) == 1,
+			f"In simple ex, there are {len(cand_groups)} components, but should only be one."
+		)
+		self.check_cand_groups_correct(
+			cand_groups[0], shape='circle'
+		)
+		print(cand_groups[0])
+		print([x.group for x in cand_groups[0]])
+		print(sorted(list(set([j for x in cand_groups[0] for j in x.group]))))
+		raise ValueError()
+		
 
 
 

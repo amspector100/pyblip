@@ -10,7 +10,6 @@ import networkx as nx
 import warnings
 from .utilities import elapsed
 from .create_groups import CandidateGroup
-from . import create_groups
 from collections import Counter
 
 TOL = 1e-10
@@ -316,11 +315,13 @@ def grid_peps_to_cand_groups(
 				np.abs(centers[j].reshape(-1, 1) - centers[j].reshape(1, -1)) < deltas
 			)
 	elif shape == 'circle':
-		constraints = np.sqrt(np.power(
+		dists = np.sqrt(np.power(
 			centers.reshape(d, ngroups, 1) - centers.reshape(d, 1, ngroups), 2
-		).sum(axis=0)) < deltas
+		).sum(axis=0))
+		constraints = dists < deltas
 	else:
 		raise ValueError(f"Unrecognized shape={shape}, must be one of 'square', 'circle'")
+
 
 
 	# Step 2: Split problem into connected components
@@ -339,7 +340,13 @@ def grid_peps_to_cand_groups(
 	for component in merged_components:
 		component_cand_groups = []
 		for j in component:
-			group = set(np.where(constraints[j])[0].tolist())
+			# Construct group.
+			# Overlap between j and jj counts as "location" min(jj, j) + max(jj, j) * p
+			overlaps = np.where(constraints[j])[0].tolist()
+			group = []
+			for jj in overlaps:
+				group.append(min(j, jj) + max(j,jj) * ngroups)
+			group = set(group)
 			data_dict = dict(radius=radii[j])
 			for k in range(d):
 				data_dict[f'dim{k}'] = centers[k, j]
@@ -357,11 +364,12 @@ def grid_peps_to_cand_groups(
 				cumprops = np.cumsum(props[inds])
 				for ell in range(len(nsignals)):
 					if cumprops[ell] >= 1 - max_pep:
-						data_dict['nsignals'] = set(nsignals[0:ell].tolist())
+						nsignal_ci = set(nsignals[0:(ell+1)].tolist())
+						data_dict['nsignals'] = nsignal_ci
 						component_cand_groups.append(
 							CandidateGroup(
 								group=group,
-								pep=1-cumprops[ell],
+								pep=max(0, 1-cumprops[ell]),
 								data=copy.deepcopy(data_dict)
 							)
 						)
