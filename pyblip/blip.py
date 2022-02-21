@@ -405,17 +405,17 @@ def binarize_selections(
 
 	# The easy cases...
 	ngroups = len(nontriv_cand_groups)
-	if ngroups == 0:
-		return output
-	if ngroups == 1:
-		if not deterministic and np.random.uniform() < nontriv_cand_groups[0].data['sprob']:
-			output.append(nontriv_cand_groups[0])
+	problem_status['ngroups_nonint'] = ngroups
+	if ngroups == 0 or ngroups == 1:
+		if ngroups == 1:
+			if not deterministic and np.random.uniform() < nontriv_cand_groups[0].data['sprob']:
+				output.append(nontriv_cand_groups[0])
+		if return_problem_status:
+			return output, problem_status
 		return output
 
 	# Constraints to ensure selected groups are disjoint
 	nontriv_cand_groups, nrel = create_groups._elim_redundant_features(nontriv_cand_groups)
-	problem_status['ngroups_nonint'] = ngroups
-	problem_status['nrel_nonint'] = nrel
 	A = np.zeros((ngroups, nrel), dtype=bool)
 	for gj, cand_group in enumerate(nontriv_cand_groups):
 		for feature in cand_group.data['blip-group']:

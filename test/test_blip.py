@@ -263,11 +263,13 @@ class TestBLiP(CheckDetections):
 			CandidateGroup(group=[3],pep=0.05, data=dict(weight=1/200))
 		]
 		# FDR
-		detections = pyblip.blip.BLiP(
+		detections, status = pyblip.blip.BLiP(
 			cand_groups=cand_groups,
 			error='fdr',
 			weight_fn='prespecified',
-			q=0.05
+			q=0.05,
+			deterministic=True,
+			return_problem_status=True,
 		)
 		groups = set([tuple(x.group) for x in detections])
 		expected = set([(0,), (2,), (3,)])
