@@ -142,6 +142,15 @@ def BLiP(
 	cand_groups = create_groups._prefilter(cand_groups, max_pep=max_pep)
 	# Edge case where nothing is below max_pep
 	if len(cand_groups) == 0:
+		if return_problem_status:
+			return [], dict(
+				nlocs=0,
+				ngroups=0,
+				backtracking_iter=0, 
+				ngroups_nonint=0, 
+				lp_bound=0,
+				deterministic=deterministic,
+			)
 		return []
 	# Construct a re-indexing which does not include redundant features
 	cand_groups, nrel = create_groups._elim_redundant_features(cand_groups)
@@ -271,7 +280,7 @@ def BLiP(
 	# Diagnostics to (optionally) return
 	problem_status = dict(
 		ngroups=ngroups,
-		nrel=nrel,
+		nlocs=nrel,
 		lp_bound=np.dot(selections, (1-peps) * weights),
 		backtracking_iter=0,
 		deterministic=deterministic,
