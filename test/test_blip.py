@@ -191,6 +191,68 @@ class TestBLiP(CheckDetections):
 			self.check_disjoint(detections)
 			self.check_pfer_control(detections, v=q)
 
+	def test_backtracking(self):
+		# Cand groups created to require backtracking
+		q = 0.1
+		cand_groups = [
+			CandidateGroup(group=[0,1], pep=0.0, data=dict(weight=1)),
+			CandidateGroup(group=[1,2], pep=0.0, data=dict(weight=1)),
+			CandidateGroup(group=[2,0], pep=0.0, data=dict(weight=1)),
+			CandidateGroup(group=[3],pep=0.25, data=dict(weight=1))
+		]
+		# Try to control FDR
+		detections, status = pyblip.blip.BLiP(
+			cand_groups=cand_groups,
+			error='fdr',
+			weight_fn='prespecified',
+			q=q,
+			deterministic=True,
+			return_problem_status=True,
+		)
+		bfdr = np.mean([x.pep for x in detections])
+		self.assertTrue(
+			bfdr <= q,
+			f"BLiP violates FDR control (fdr={bfdr}, detections={detections}) for ex. requiring backtracking"
+		)
+		self.assertTrue(
+			status['backtracking_iter'] == 1,
+			f"BLiP runs the wrong number of backtracking iter (status={status}, should be 1 iter)"
+		)
+		expected = 1.5 + 0.75
+		self.assertTrue(
+			abs(status['lp_bound'] - expected) < 1e-3,
+			f"LP bound for backtracking example is wrong (status={status}, should be {expected})"  
+		)
+
+		# Repeat and make sure we get the right answer
+		q = 0.1
+		cand_groups = [
+			CandidateGroup(group=[0,1], pep=0.0, data=dict(weight=1.1)),
+			CandidateGroup(group=[1,2], pep=0.0, data=dict(weight=1)),
+			CandidateGroup(group=[2,0], pep=0.0, data=dict(weight=1)),
+			CandidateGroup(group=[3],pep=0.1, data=dict(weight=1)),
+			CandidateGroup(group=[4],pep=0.21, data=dict(weight=1)),
+		]
+		# Try to control FDR
+		detections, status = pyblip.blip.BLiP(
+			cand_groups=cand_groups,
+			error='fdr',
+			weight_fn='prespecified',
+			q=q,
+			deterministic=True,
+			return_problem_status=True,
+		)
+		groups = set([tuple(x.group) for x in detections])
+		expected = set([(0,1), (3,)])
+		self.assertEqual(
+			groups, expected, f"FDR solution for backtracking example #2 is wrong"
+		)
+		self.assertTrue(
+			status['backtracking_iter'] == 1,
+			f"BLiP runs the wrong number of backtracking iter (status={status}, should be 1 iter)"
+		)
+
+
 
 	def test_fdr_good_soln(self):
 		# Cand groups created to be adversarially tricky

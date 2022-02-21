@@ -17,6 +17,14 @@ elif 'CBC' in INSTALLED_SOLVERS:
 	DEFAULT_SOLVER = 'CBC'
 else:
 	DEFAULT_SOLVER = 'ECOS'
+# Solver for binarization (very small-scale mixed-integer LP)
+# GLPK is a good solver in general, but it has known 
+# bugs in very small problems like this one. See
+# https://github.com/cvxpy/cvxpy/issues/1112
+if 'CBC' in INSTALLED_SOLVERS:
+	BIN_SOLVER = 'CBC'
+else:
+	BIN_SOLVER = None # default
 
 WEIGHT_FNS = {
 	'inverse_size':weight_fns.inverse_size,
@@ -37,6 +45,7 @@ def BLiP(
 	perturb=True,
 	max_iters=100,
 	search_method='binary',
+	return_problem_status=False,
 	**kwargs
 ):
 	"""
@@ -88,12 +97,17 @@ def BLiP(
 		for the LP. Either "none" or "binary." Defaults to "binary". 
 	perturb : bool
 		If True, will perturb the weight function 
+	return_problem_status : False
+		If True, will return extra information about the problem.
 
 	Returns
 	-------
 	detections : list
 		A list of CandidateGroups consisting of the detected signals
 		and the regions containing them.
+	problem_status : dict
+		A dict containing information about the BLiP optimization problem.
+		Only returned if ``return_problem_status==True``.	
 	"""
 	# Parse arguments
 	time0 = time.time()
@@ -152,7 +166,7 @@ def BLiP(
 	# perturb to avoid degeneracy in some cases
 	if perturb:
 		weights = np.array([
-			w*(1 + 0.001*np.random.uniform()) for w in weights]
+			w*(1 + 0.0001*np.random.uniform()) for w in weights]
 		)
 
 	# Extract peps
@@ -209,7 +223,7 @@ def BLiP(
 		problem.solve(solver=solver)
 		selections = x.value
 
-	# Solve FWER/FDR through binary search
+	# Solve FWER through binary search
 	elif binary_search:
 		v_upper = q * nrel + 1 # upper bnd in search (min val not controlling FWER)
 		v_lower = 0 # lower bnd in search (max val controlling FWER)
@@ -233,7 +247,7 @@ def BLiP(
 			if fwer > q:
 				v_upper = v_current
 			else:
-			 	v_lower = v_current
+				v_lower = v_current
 			# Possibly break
 			if v_upper - v_lower < 1e-4:
 				break
@@ -254,11 +268,22 @@ def BLiP(
 		cand_group.data['sprob'] = sprob
 		cand_group.data['weight'] = weight
 
+	# Diagnostics to (optionally) return
+	problem_status = dict(
+		ngroups=ngroups,
+		nrel=nrel,
+		lp_bound=np.dot(selections, (1-peps) * weights),
+		backtracking_iter=0,
+		deterministic=deterministic,
+	)
+
 	return binarize_selections(
 		cand_groups=cand_groups,
 		q=q,
 		error=error,
-		deterministic=deterministic
+		deterministic=deterministic,
+		problem_status=problem_status,
+		return_problem_status=return_problem_status,
 	)
 
 def BLiP_cts(
@@ -342,6 +367,8 @@ def binarize_selections(
 	q,
 	error,
 	deterministic,
+	problem_status=None,
+	return_problem_status=False,
 	tol=1e-3,
 ):
 	"""
@@ -362,6 +389,8 @@ def binarize_selections(
 		List of candidate groups which have been detected.
 	"""
 	output = []
+	if problem_status is None:
+		problem_status = dict(backtracking_iter=0)
 
 	# Prune options with zero selection prob
 	# and add options which have selection prob of 1. 
@@ -385,6 +414,8 @@ def binarize_selections(
 
 	# Constraints to ensure selected groups are disjoint
 	nontriv_cand_groups, nrel = create_groups._elim_redundant_features(nontriv_cand_groups)
+	problem_status['ngroups_nonint'] = ngroups
+	problem_status['nrel_nonint'] = nrel
 	A = np.zeros((ngroups, nrel), dtype=bool)
 	for gj, cand_group in enumerate(nontriv_cand_groups):
 		for feature in cand_group.data['blip-group']:
@@ -448,6 +479,7 @@ def binarize_selections(
 		constraints = [
 			A.T @ x <= b
 		]
+		objective = cp.Maximize(((1-peps) * weights) @ x)
 		if error in ['pfer', 'fwer']:
 			if error == 'pfer':
 				v_opt = q
@@ -457,26 +489,37 @@ def binarize_selections(
 			constraints += [
 				x @ peps <= v_new
 			]
+			problem = cp.Problem(objective=objective, constraints=constraints)
+			problem.solve(solver=BIN_SOLVER)
 		elif error == 'fdr':
-			v_var = cp.Variable(pos=True)
-			constraints += [
-				x @ peps <= v_var,
-				sum(x) >= (v_var + v_output) / q - ndisc_out
-			]
-
-		objective = cp.Maximize(((1-peps) * weights) @ x)
-		problem = cp.Problem(objective=objective, constraints=constraints)
-
-		# GLPK is a good solver in general, but it has known 
-		# bugs in very small problems like this one. See
-		# https://github.com/cvxpy/cvxpy/issues/1112
-		if 'CBC' in INSTALLED_SOLVERS: 
-			problem.solve(solver='CBC')
-		else:
-			problem.solve()
-
-		if problem.status == 'infeasible':
-			return output
+			# Create output
+			output = sorted(output, key=lambda x: x.pep)
+			# Iteratively try to solve problem and then backtrack if infeasible
+			# (backtracking is extremely rare)
+			while len(output) >= 0:
+				v_var = cp.Variable(pos=True)
+				constraints_fdr = constraints + [
+					x @ peps <= v_var,
+					cp.sum(x) >= (v_var + v_output) / q - ndisc_out
+				]
+				problem = cp.Problem(objective=objective, constraints=constraints_fdr)
+				try:
+					problem.solve(solver='GLPK_MI')
+				except cp.error.SolverError as e:
+					problem.solve(solver=BIN_SOLVER)
+				if problem.status != 'infeasible':
+					break
+				else:
+					# This should never be triggered (is mathematically impossible
+					if len(output) == 0:
+						raise RuntimeError(
+							f"Backtracking for FDR control failed"
+						)
+					# Backtrack by getting rid of last group
+					problem_status['backtracking_iter'] += 1
+					v_output -= output[-1].pep
+					ndisc_out -= 1
+					output = output[0:-1]
 
 		if x.value is None:
 			print(f"stats={problem.status}, nontriv_cand_groups={nontriv_cand_groups}")
@@ -485,4 +528,6 @@ def binarize_selections(
 			if binprob > 1 - tol:
 				output.append(x)
 
+	if return_problem_status:
+		return output, problem_status
 	return output
