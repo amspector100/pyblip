@@ -268,7 +268,7 @@ cdef double _compute_QA(
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-def _sample_linear_spikeslab_multi(
+def _sample_spikeslab_multi(
 	int N,
 	int bsize,
 	double[:, ::1] X,
@@ -875,9 +875,9 @@ def _sample_linear_spikeslab_multi(
 							mean=mu_pred[it], var=sigma2, b=0, lower_interval=z[it] 
 						)
 						y[it] = Y_latent[i, it]
-						r[it] = y[it] - mu[it]
+						r[it] = y[it] - mu_pred[it]
 
-				# # Check residuals are correct
+				# Check residuals are correct
 				#r_t = y - np.dot(X, betas_arr[i])
 				#diff = np.abs(r_arr - r_t).mean()
 				#print(f"msize={len(model_comb)}, bext_next={beta_next_arr[0:msize]}, i={i}, mean resid diff={diff}")

@@ -3,10 +3,9 @@ import numpy as np
 import scipy as sp
 from scipy import linalg
 from scipy import stats
-from knockpy.utilities import apply_pool ## get rid of this, deal with it later
-
-from ._linear import _sample_linear_spikeslab
-from ._linear_multi import _sample_linear_spikeslab_multi
+from ..utilities import apply_pool
+from ._linear import _sample_spikeslab
+from ._linear_multi import _sample_spikeslab_multi
 
 class LinearSpikeSlab():
 
@@ -60,7 +59,7 @@ class LinearSpikeSlab():
 		num_processes : int
 			How many processes to use
 		bsize : int
-			Maximum block size within gibbs sampling. Defualt: 1.
+			Maximum block size within gibbs sampling. Default: 1.
 		"""
 		z = np.zeros(1).astype(int) # dummy variable
 		constant_inputs=dict(
@@ -82,12 +81,13 @@ class LinearSpikeSlab():
 			p0_a0=self.p0_a0,
 			p0_b0=self.p0_b0,
 		)
+		# Add block size in and decide underlying function call
 		bsize = min(bsize, self.X.shape[1])
 		if bsize > 1:
-			fn = _sample_linear_spikeslab_multi
+			fn = _sample_spikeslab_multi
 			constant_inputs['bsize'] = bsize
 		else:
-			fn = _sample_linear_spikeslab
+			fn = _sample_spikeslab
 
 		out = apply_pool(
 			fn,

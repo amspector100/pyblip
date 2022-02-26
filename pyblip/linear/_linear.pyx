@@ -31,7 +31,7 @@ cdef double M_SQRT1_2 = sqrt(0.5)
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-def _sample_linear_spikeslab(
+def _sample_spikeslab(
 	int N,
 	double[:, ::1] X,
 	double[::1] y, # outcomes for linear regression, not used in probit regression

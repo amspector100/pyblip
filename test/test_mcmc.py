@@ -6,7 +6,6 @@ import unittest
 import pytest
 from . import context
 from .context import pyblip
-from pyblip import linear, probit, nprior
 
 class TestMCMC(unittest.TestCase):
 
@@ -106,7 +105,8 @@ class TestMCMC(unittest.TestCase):
 			[lm, nlm, probit],
 			[beta_linear, beta_linear, beta_probit],
 		):
-			model.sample(N=1500, chains=1, burn=500)
+			sample_kwargs = dict(N=1500, chains=1, burn=500)
+			model.sample(**sample_kwargs)
 			# Test inclusions
 			pips = (model.betas != 0).mean(axis=0)
 			m_nn_pip = np.min(pips[beta != 0])
