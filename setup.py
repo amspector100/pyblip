@@ -28,12 +28,6 @@ ext_modules = [
 		extra_compile_args = ["-ffast-math"]
 	),
 	Extension(
-		"pyblip.probit._probit",
-		sources=["pyblip/probit/_probit.pyx"],
-		libraries=["m"],  # Unix-like specific
-		extra_compile_args = ["-ffast-math"]
-	),
-	Extension(
 		"pyblip.nprior._nprior",
 		sources=["pyblip/nprior/_nprior.pyx"],
 		libraries=["m"],  # Unix-like specific
