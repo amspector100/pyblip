@@ -47,7 +47,13 @@ class LinearSpikeSlab():
 		self.min_p0 = min_p0
 
 	def sample(
-		self, N, burn=100, chains=1, num_processes=1, bsize=1,
+		self,
+		N,
+		burn=100, 
+		chains=1, 
+		num_processes=1, 
+		bsize=1,
+		max_signals_per_block=None,
 	):
 		"""
 		N : int
@@ -60,6 +66,10 @@ class LinearSpikeSlab():
 			How many processes to use
 		bsize : int
 			Maximum block size within gibbs sampling. Default: 1.
+		max_signals_per_block : int
+			Maximum number of signals allowed per block. Default: None
+			(this places no restrictions on the number of signals per block).
+			The default is highly recommended.
 		"""
 		z = np.zeros(1).astype(int) # dummy variable
 		constant_inputs=dict(
@@ -86,6 +96,9 @@ class LinearSpikeSlab():
 		if bsize > 1:
 			fn = _sample_spikeslab_multi
 			constant_inputs['bsize'] = bsize
+			if max_signals_per_block is None:
+				max_signals_per_block = 0
+			constant_inputs['max_signals_per_block'] = max_signals_per_block
 		else:
 			fn = _sample_spikeslab
 

@@ -287,7 +287,8 @@ def _sample_spikeslab_multi(
 	int update_p0,
 	double min_p0,
 	double p0_a0,
-	double p0_b0
+	double p0_b0,
+	int max_signals_per_block,
 ):
 	# Initialize outputs
 	cdef:
@@ -295,7 +296,6 @@ def _sample_spikeslab_multi(
 		int n = X.shape[0]
 		int p = X.shape[1]
 		int nblock = round((p + bsize - 1) / bsize)
-		int nmodel = int(2**bsize)
 		int i, ii, it, bi, bj, j, jj, mj, msize
 		int b2 = bsize * bsize
 		int INFO = 0
@@ -316,8 +316,6 @@ def _sample_spikeslab_multi(
 		tuple model_comb
 		np.ndarray[long, ndim=2] blocks_arr = -1*np.ones((nblock, bsize)).astype(int)
 		long[:, ::1] blocks = blocks_arr
-		double[::1] model_probs = np.zeros(nmodel,) # P(A = J0) in notation of paper
-		double[::1] model_lprobs = np.zeros(nmodel,) # log P(A = J0) in notation of paper
 		np.ndarray[long, ndim=1] model_inds = np.arange(bsize)
 		np.ndarray[double, ndim=2] XAT_arr = np.zeros((bsize, n))
 		double[:, ::1] XAT = XAT_arr
@@ -411,9 +409,17 @@ def _sample_spikeslab_multi(
 				j = 0
 
 	# Create model combinations
+	if max_signals_per_block == 0:
+		max_signals_per_block = bsize
 	model_combs = []
-	for msize in range(1, bsize+1):
+	for msize in range(1, max_signals_per_block+1):
 		model_combs.extend(combinations(model_inds, msize))
+
+	# Initialize model probs/log-probs
+	cdef: 
+		int nmodel = len(model_combs) + 1
+		double[::1] model_probs = np.zeros(nmodel,) # P(A = J0) in notation of paper
+		double[::1] model_lprobs = np.zeros(nmodel,) # log P(A = J0) in notation of paper
 
 	for i in range(N):
 		# shuffle blocks and shift by one

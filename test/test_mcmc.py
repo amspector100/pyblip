@@ -133,6 +133,39 @@ class TestMCMC(unittest.TestCase):
 					err_msg=f"Average l2 norm of null coeffs is too large"
 				)
 
+	def test_max_nnull_per_block(self):
+
+		# Sample data with high SNR and two nulls right next to each other
+		np.random.seed(1234)
+		X, y, beta = context.generate_regression_data(
+			a=1, b=1, y_dist='linear', p=2, n=500, coeff_size=5, sparsity=1.0, coeff_dist='uniform',
+		)
+		# Initialize models models
+		lm = pyblip.linear.LinearSpikeSlab(
+			X=X, y=y, sigma2=1, update_sigma2=False, p0_a0=1, p0_b0=1,
+		)
+		for max_nnull_size in [None, 1, 2]:
+			sample_kwargs = dict(
+				N=1500, chains=1, bsize=2, burn=500, max_signals_per_block=max_nnull_size
+			)
+			lm.sample(**sample_kwargs)
+			# Run BLiP and check power
+			detections = pyblip.blip.BLiP(
+				inclusions=lm.betas != 0,
+				error='fdr',
+				q=0.1
+			)
+			power = np.sum([1/len(x.group) for x in detections]) / 2
+			if max_nnull_size is not None and max_nnull_size == 1:
+				self.assertTrue(
+					power <= 1/2,
+					f"power for p=2, sparsity=1, max_nnull_per_block={max_nnull_size} is {power} > 1/2"
+				)
+			else:
+				self.assertTrue(
+					power == 1,
+					f"power for p=2, sparsity=1, max_nnull_per_block={max_nnull_size} should be 1 but power={power}"
+				)
 	# def test_probit_estimation(self):
 
 	# 	# Sample data with high SNR

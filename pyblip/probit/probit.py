@@ -13,7 +13,13 @@ from ..linear._linear_multi import _sample_spikeslab_multi
 class ProbitSpikeSlab(LinearSpikeSlab):
 
 	def sample(
-		self, N, burn=100, chains=1, num_processes=1, bsize=1
+		self,
+		N,
+		burn=100, 
+		chains=1,
+		num_processes=1,
+		bsize=1,
+		max_signals_per_block=None,
 	):
 		"""
 		N : int
@@ -26,6 +32,10 @@ class ProbitSpikeSlab(LinearSpikeSlab):
 			How many processes to use
 		bsize : int
 			Maximum block size within gibbs sampling. Default: 1.
+		max_signals_per_block : int
+			Maximum number of signals allowed per block. Default: None
+			(this places no restrictions on the number of signals per block).
+			The default is highly recommended.
 		"""
 		# Note that in the inner sampling function,
 		# y is always continuous linear regression responses
@@ -55,6 +65,9 @@ class ProbitSpikeSlab(LinearSpikeSlab):
 		if bsize > 1:
 			fn = _sample_spikeslab_multi
 			constant_inputs['bsize'] = bsize
+			if max_signals_per_block is None:
+				max_signals_per_block = 0
+			constant_inputs['max_signals_per_block'] = max_signals_per_block
 		else:
 			fn = _sample_spikeslab
 
