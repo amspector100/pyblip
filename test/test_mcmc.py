@@ -57,6 +57,34 @@ class TestMCMC(unittest.TestCase):
 				err_msg=f"post_var={post_var}, post samples had cov {post_var}"
 			)
 
+	def test_update_hparams(self):
+
+		np.random.seed(123)
+		n = 1000
+		p = 4
+		p0_a0 = 1
+		p0_b0 = 1
+		X, y, beta = context.generate_regression_data(
+			a=1, b=10, coeff_size=5, n=n, p=p, sparsity=0.5, coeff_dist='normal'
+		)
+		lm = pyblip.linear.LinearSpikeSlab(
+			X=X, y=y, p0=0.5, p0_a0=p0_a0, p0_b0=p0_b0, min_p0=0, 
+			update_p0=True, update_sigma2=True, update_tau2=True, 
+		)
+		# Posterior of p0 should be Beta(1+2, 1+2)
+		for bsize in [4,1]:
+			lm.sample(N=5000, bsize=bsize, burn=1000)
+			nactive = np.sum(lm.betas != 0, axis=1)
+			post_means = (p0_a0 + p - nactive) / (p0_a0 + p0_b0 + p)
+			expected_mean = np.mean(post_means)
+			p0_post_mean = np.mean(lm.p0s)
+			np.testing.assert_array_almost_equal(
+				p0_post_mean,
+				expected_mean,
+				decimal=2,
+				err_msg=f"expected p0 mean={expected_mean}, bsize={bsize}, but posterior samples had mean {p0_post_mean}."
+			)
+
 	def test_coeff_estimation(self):
 
 		# Sample data with high SNR
@@ -148,3 +176,4 @@ class TestMCMC(unittest.TestCase):
 
 if __name__ == "__main__":
 	unittest.main()
+TestMCMC

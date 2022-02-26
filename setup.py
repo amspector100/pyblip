@@ -10,6 +10,12 @@ ext_modules = [
 		extra_compile_args = ["-ffast-math"]
 	),
 	Extension(
+		"pyblip.cython_utils._update_hparams",
+		sources=["pyblip/cython_utils/_update_hparams.pyx"],
+		libraries=["m"],  # Unix-like specific
+		extra_compile_args = ["-ffast-math"]
+	),
+	Extension(
 		"pyblip.linear._linear",
 		sources=["pyblip/linear/_linear.pyx"],
 		libraries=["m"],  # Unix-like specific

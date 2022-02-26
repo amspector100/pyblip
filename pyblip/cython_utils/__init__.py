@@ -1,4 +1,4 @@
 """ Submodule for cython utility functions """
-all = ["_truncnorm"]
+all = ["_truncnorm", "_update_hparams"]
 
-from . import _truncnorm
+from . import _truncnorm, _update_hparams

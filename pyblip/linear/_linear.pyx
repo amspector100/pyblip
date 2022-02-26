@@ -15,6 +15,7 @@ from libc.math cimport log, exp, fabs, sqrt, fmax, erfc
 
 # Fast uniform sampling
 from ..cython_utils._truncnorm import random_uniform
+from ..cython_utils._update_hparams import _update_hparams
 
 # Blas commonly used parameters
 cdef double zero = 0, one = 1, neg1 = -1
@@ -161,53 +162,33 @@ def _sample_linear_spikeslab(
 					&inc_1
 				)
 
-		# Calculate number of active variables
-		num_active = 0
-		for j in range(p):
-			if betas[i,j] != 0:
-				num_active += 1
+		# Update hyperparams
+		_update_hparams(
+			i=i, 
+			n=n,
+			p=p,
+			max_nprop=max_nprop,
+			betas=betas,
+			r=r,
+			p0s=p0s,
+			sigma2s=sigma2s,
+			tau2s=tau2s,
+			invgamma=invgammas[i],
+			p0_proposals=p0_proposals,
+			update_tau2=update_tau2,
+			tau2_a0=tau2_a0,
+			tau2_b0=tau2_b0,
+			update_sigma2=update_sigma2,
+			sigma2_a0=sigma2_a0,
+			sigma2_b0=sigma2_b0,
+			update_p0=update_p0,
+			min_p0=min_p0,
+			p0_a0=p0_a0,
+			p0_b0=p0_b0,
+		)
 
-		# Resample p0s
-		if update_p0 == 1:
-			# sample p0
-			if min_p0 == 0:
-				p0s[i] = np.random.beta(
-					p0_a0 + p - num_active, p0_b0 + num_active
-				)
-			else:
-				# rejection sampling
-				p0_proposals = np.random.beta(
-					p0_a0 + p - num_active, p0_b0 + num_active, size=max_nprop
-				) # batching the proposals is more efficient 
-				p0s[i] = min_p0
-				for j in range(max_nprop):
-					if p0_proposals[j] > min_p0:
-						p0s[i] = p0_proposals[j]
-						break
-			logodds = log(p0s[i]) - log(1 - p0s[i])
-
-		# possibly resample sigma2
-		if update_sigma2 == 1:
-			# calculate l2 norm of r
-			r2 = blas.dnrm2(&n, &r[0], &inc_1)
-			r2 = r2 * r2
-			# compute b parameter and rescale
-			sigma_b = r2 / 2.0 + sigma2_b0
-			sigma2s[i] = sigma_b * invgammas[i]
-		else:
-			sigma2s[i] = sigma2
-
-		# possibly resample tau2
-		if update_tau2:
-			sample_var = 0
-			for j in range(p):
-				if betas[i,j] != 0:
-					sample_var += betas[i,j] * betas[i,j]
-			tau2s[i] = (tau2_b0 + sample_var / 2.0) / np.random.gamma(
-				shape=tau2_a0 + float(num_active) / 2.0
-			)
-		else:
-			tau2s[i] = tau2
+		# Recompute logodds
+		logodds = log(p0s[i]) - log(1 - p0s[i])
 
 		# Set new betas, p0s to be old values (temporarily)
 		if i != N - 1:
