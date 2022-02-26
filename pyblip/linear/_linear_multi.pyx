@@ -13,9 +13,10 @@ cimport scipy.linalg.cython_lapack as lapack
 from libc.stdlib cimport rand, RAND_MAX
 from libc.math cimport log, exp, fabs, sqrt, fmax, erfc
 
-# Fast uniform sampling
-from ..cython_utils._truncnorm import random_uniform
+# Fast uniform/truncated normal sampling
+from ..cython_utils._truncnorm import random_uniform, sample_truncnorm
 from ..cython_utils._update_hparams import _update_hparams
+
 from itertools import combinations
 
 # Blas commonly used parameters
@@ -271,7 +272,9 @@ def _sample_linear_spikeslab_multi(
 	int N,
 	int bsize,
 	double[:, ::1] X,
-	double[::1] y,
+	double[::1] y, # outcomes for linear regression, not used in probit model
+	long[::1] z, # censored outcomes for probit model, not used in linear regression
+	int probit,
 	double tau2,
 	int update_tau2,
 	double tau2_a0,
@@ -364,9 +367,15 @@ def _sample_linear_spikeslab_multi(
 		# for sigma2 /tau2 updates
 		double r2, sigma_b, sample_var
 
-		# Initialize r (residuals)
-		np.ndarray[double, ndim=1] r_arr = y - np.dot(X, betas_arr[0])
+		# Initialize mu (predictions) and r (residuals)
+		np.ndarray[double, ndim=1] mu_pred_arr = np.dot(X, betas_arr[0])
+		double[::1] mu_pred = mu_pred_arr
+		np.ndarray[double, ndim=1] r_arr = np.zeros(n)# = y - np.dot(X, betas_arr[0])
 		double[::1] r = r_arr
+		
+		# Initialize latent variables Y (only used in probit regression)
+		np.ndarray[double, ndim=2] Y_latent_arr = np.zeros((N, n))
+		double[:, ::1] Y_latent = Y_latent_arr
 
 	# Cache XTX
 	cdef double[:, ::1] XTX = np.dot(X.T, X)
@@ -380,7 +389,17 @@ def _sample_linear_spikeslab_multi(
 	tau2s[0] = tau2
 	p0s[0] = p0
 
-	# Initialize blocks
+	# Initialize residuals and, when probit=1, latent variables
+	if probit == 1:
+		for it in range(n):
+			Y_latent[0, it] = sample_truncnorm(
+				mean=mu_pred[it], var=sigma2, b=0, lower_interval=z[it] 
+			)
+			y[it] = Y_latent[0, it]
+	for it in range(n):
+		r[it] = y[it] - mu_pred[it]
+
+	# Initialize blocks from which to do Gibbs sampling
 	j = 0
 	for bi in range(nblock):
 		for bj in range(bsize):
@@ -409,6 +428,11 @@ def _sample_linear_spikeslab_multi(
 				old_betaj = betas[i, j]
 				if old_betaj != 0:
 					blas.daxpy(&n, &old_betaj, &XT[j,0], &inc_1, &r[0], &inc_1)
+					# Update predictions for probit case
+					if probit == 1:
+						neg_betaj = -1*old_betaj
+						blas.daxpy(&n, &neg_betaj, &XT[j,0], &inc_1, &mu_pred[0], &inc_1)
+				# Set beta to zero
 				betas[i, j] = 0
 
 			#print("I claim sum(abs(XAT_arr))==0", np.sum(np.abs(XAT_arr)))
@@ -501,8 +525,7 @@ def _sample_linear_spikeslab_multi(
 			mj = _weighted_choice(
 				probs=model_probs, log_probs=model_lprobs, nmodel=nmodel
 			)
-			# Fill coefficients beta. We only need to do this
-			# if mj != 0.
+			# Fill coefficients beta. We only need to do this if mj != 0.
 			if mj > 0:
 				model_comb = model_combs[mj-1]
 				msize = len(model_comb)
@@ -822,22 +845,42 @@ def _sample_linear_spikeslab_multi(
 				for jj in model_comb:
 					j = blocks[bi, jj]
 					betas[i, j] = beta_next[ii]
-					# Set residuals
-					neg_betaj = -1 * beta_next[ii]
-					blas.daxpy(
-						&n,
-						&neg_betaj,
-						&XT[j,0],
-						&inc_1,
-						&r[0],
-						&inc_1
-					)
+					# Update residuals for lin. reg.
+					if probit != 1:
+						neg_betaj = -1 * beta_next[ii]
+						blas.daxpy(
+							&n,
+							&neg_betaj,
+							&XT[j,0],
+							&inc_1,
+							&r[0],
+							&inc_1
+						)
+					# For probit, update mu_pred
+					else:
+						blas.daxpy(
+							&n,
+							&betas[i, j],
+							&XT[j,0],
+							&inc_1,
+							&mu_pred[0],
+							&inc_1
+						)
 					ii += 1
 
+				# For probit, update latents
+				if probit == 1:
+					for it in range(n):
+						Y_latent[i, it] = sample_truncnorm(
+							mean=mu_pred[it], var=sigma2, b=0, lower_interval=z[it] 
+						)
+						y[it] = Y_latent[i, it]
+						r[it] = y[it] - mu[it]
+
 				# # Check residuals are correct
-				# r_t = y - np.dot(X, betas_arr[i])
-				# diff = np.abs(r_arr - r_t).mean()
-				# print(f"msize={len(model_comb)}, bext_next={beta_next_arr[0:msize]}, i={i}, mean resid diff={diff}")
+				#r_t = y - np.dot(X, betas_arr[i])
+				#diff = np.abs(r_arr - r_t).mean()
+				#print(f"msize={len(model_comb)}, bext_next={beta_next_arr[0:msize]}, i={i}, mean resid diff={diff}")
 
 		# Update hyperparams
 		_update_hparams(
@@ -876,9 +919,10 @@ def _sample_linear_spikeslab_multi(
 			tau2s[i+1] = tau2s[i]
 
 
-	return {"betas":betas_arr, "p0s":p0s_arr, "tau2s":tau2s_arr, "sigma2s":sigma2s_arr}
-
-
-
+	# Return output, including latents for probit
+	output = {"betas":betas_arr, "p0s":p0s_arr, "tau2s":tau2s_arr, "sigma2s":sigma2s_arr}
+	if probit == 1:
+		output['y_latent'] = Y_latent_arr
+	return output
 
 	

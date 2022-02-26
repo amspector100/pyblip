@@ -62,9 +62,12 @@ class LinearSpikeSlab():
 		bsize : int
 			Maximum block size within gibbs sampling. Defualt: 1.
 		"""
+		z = np.zeros(1).astype(int) # dummy variable
 		constant_inputs=dict(
 			X=self.X,
 			y=self.y,
+			z=z,
+			probit=False,
 			tau2=self.tau2,
 			update_tau2=self.update_tau2,
 			tau2_a0=self.tau2_a0,

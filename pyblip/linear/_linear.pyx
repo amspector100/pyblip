@@ -13,8 +13,8 @@ cimport scipy.linalg.cython_lapack as lapack
 from libc.stdlib cimport rand, RAND_MAX
 from libc.math cimport log, exp, fabs, sqrt, fmax, erfc
 
-# Fast uniform sampling
-from ..cython_utils._truncnorm import random_uniform
+# Fast uniform/truncated normal sampling
+from ..cython_utils._truncnorm import random_uniform, sample_truncnorm
 from ..cython_utils._update_hparams import _update_hparams
 
 # Blas commonly used parameters
@@ -34,7 +34,9 @@ cdef double M_SQRT1_2 = sqrt(0.5)
 def _sample_linear_spikeslab(
 	int N,
 	double[:, ::1] X,
-	double[::1] y,
+	double[::1] y, # outcomes for linear regression, not used in probit regression
+	long[::1] z, # censored outcomes for probit model, not used in linear regression
+	int probit,
 	double tau2,
 	int update_tau2,
 	double tau2_a0,
@@ -93,10 +95,14 @@ def _sample_linear_spikeslab(
 		double sample_var
 
 		# Initialize mu (predictions) and r (residuals)
-		# np.ndarray[double, ndim=1] mu_arr = np.dot(X, betas_arr[0])
-		# double[::1] mu = mu_arr
-		np.ndarray[double, ndim=1] r_arr = y - np.dot(X, betas_arr[0])
+		np.ndarray[double, ndim=1] mu_arr = np.dot(X, betas_arr[0])
+		double[::1] mu = mu_arr
+		np.ndarray[double, ndim=1] r_arr = np.zeros(n)# = y - np.dot(X, betas_arr[0])
 		double[::1] r = r_arr
+		
+		# Initialize latent variables Y (only used in probit regression)
+		np.ndarray[double, ndim=2] Y_latent_arr = np.zeros((N, n))
+		double[:, ::1] Y_latent = Y_latent_arr
 
 	# precompute sigma2 posterior variance
 	cdef double sigma_a = n / 2.0 + sigma2_a0
@@ -106,6 +112,16 @@ def _sample_linear_spikeslab(
 	sigma2s[0] = sigma2
 	tau2s[0] = tau2
 	p0s[0] = p0
+
+	# Initializations of latent variables (in probit case) and residuals
+	if probit == 1:
+		for it in range(n):
+			Y_latent[0, it] = sample_truncnorm(
+				mean=mu[it], var=sigma2, b=0, lower_interval=z[it] 
+			)
+			y[it] = Y_latent[0, it]
+	for it in range(n):
+		r[it] = y[it] - mu[it]
 
 	for i in range(N):
 		# precompute log determinants / posterior variances
@@ -140,27 +156,42 @@ def _sample_linear_spikeslab(
 				#print(f"i={i}, j={j}, kappa={kappa}, XjTr={XjTr}, post_mean={post_mean}, post_var={post_vars[j]}")
 				#post_var * np.sum(r_arr)
 				betas[i, j] = np.sqrt(post_vars[j]) * np.random.randn() + post_mean
-			# update mu
-			# delta = betas[i, j] - old_betaj # note if delta = 0, old_betaj = 0
-			# if delta != 0:
-			# 	blas.daxpy(
-			# 		&n,
-			# 		&delta,
-			# 		&XT[j,0],
-			# 		&inc_1,
-			# 		&mu[0],
-			# 		&inc_1
-			# 	)
-			if betas[i, j] != 0:
-				neg_betaj = -1*betas[i,j]
-				blas.daxpy(
-					&n,
-					&neg_betaj,
-					&XT[j,0],
-					&inc_1,
-					&r[0],
-					&inc_1
-				)
+			# update r for linear regression
+			if probit != 1:
+				if betas[i, j] != 0:
+					neg_betaj = -1*betas[i,j]
+					blas.daxpy(
+						&n,
+						&neg_betaj,
+						&XT[j,0],
+						&inc_1,
+						&r[0],
+						&inc_1
+					)
+			# Update latents, mu, residuals for probit regression
+			else:
+				delta = betas[i, j] - old_betaj # note if delta = 0, old_betaj = 0
+				if delta != 0:
+					# update mu
+					blas.daxpy(
+						&n,
+						&delta,
+						&XT[j,0],
+						&inc_1,
+						&mu[0],
+						&inc_1
+					)
+					# make sure sgn(z) matches y
+					for it in range(n):
+						Y_latent[i, it] = sample_truncnorm(
+							mean=mu[it], var=sigma2, b=0, lower_interval=z[it] 
+						)
+						y[it] = Y_latent[i, it]
+						r[it] = y[it] - mu[it]
+						# if y[it] == 0:
+						# 	assert Z[i, it] > 0
+						# if y[it] == 1:
+						# 	assert Z[i, it] < 0
 
 		# Update hyperparams
 		_update_hparams(
@@ -197,9 +228,10 @@ def _sample_linear_spikeslab(
 			sigma2s[i+1] = sigma2s[i]
 			tau2s[i+1] = tau2s[i]
 
-
-	return {"betas":betas_arr, "p0s":p0s_arr, "tau2s":tau2s_arr, "sigma2s":sigma2s_arr}
-
+	output = {"betas":betas_arr, "p0s":p0s_arr, "tau2s":tau2s_arr, "sigma2s":sigma2s_arr}
+	if probit == 1:
+		output['y_latent'] = Y_latent_arr
+	return output
 
 
 

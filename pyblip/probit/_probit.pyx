@@ -151,7 +151,7 @@ def _sample_probit_spikeslab(
 			p0s[i] = np.random.beta(
 				1 + p - num_active, 1 + num_active
 			)
-			logodds = log(p0s[i]) - log(1 - p0s[i])
+		logodds = log(p0s[i]) - log(1 - p0s[i])
 
 		# Set new betas, Z to be old values (temporarily)
 		if i != N - 1:
