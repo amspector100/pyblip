@@ -1,12 +1,13 @@
 from . import blip, changepoint, create_groups
-from . import create_groups_cts, linear, nprior
-from . import probit, cython_utils
+from . import ecc, create_groups_cts
+from . import linear, nprior, probit, cython_utils
 name = "pyblip"
 all = [
 	"blip",
 	"changepoint",
 	"create_groups",
 	"create_groups_cts",
+	"ecc",
 	"linear",
 	"nprior",
 	"probit",

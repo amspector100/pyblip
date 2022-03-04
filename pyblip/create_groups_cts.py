@@ -10,6 +10,7 @@ import networkx as nx
 import warnings
 from .utilities import elapsed
 from .create_groups import CandidateGroup
+from .ecc import edge_clique_cover
 from collections import Counter
 
 TOL = 1e-10
@@ -346,7 +347,8 @@ def grid_peps_to_cand_groups(
 		# subG. 
 		if verbose:
 			print(f"Finding list of cliques for component {compnum} / {len(merged_components)} with dim {len(component)} at {elapsed(time0)}")
-		cliques = nx.algorithms.clique.find_cliques(subG)
+		#cliques = nx.algorithms.clique.find_cliques(subG)
+		cliques = edge_clique_cover(subG)#
 		for cliquenum, clique in enumerate(cliques):
 			for j in clique:
 				component_groups[j].append(cliquenum)

@@ -17,20 +17,21 @@ def edge_clique_cover(G):
     cliques : list
         List of cliques. Each clique is a list of ints where
         the integers correspond to the nodes of G.
-    """
-    am = nx.adjacency_matrix(G) # original adj.matrix
-    am2 = am.copy() # new adj. matrix after deleting edges
+    """ 
+    # Remove all self-edges
+    G.remove_edges_from(nx.selfloop_edges(G))
+
+    G2 = G.copy() # new Graph after deleting edges
     nodes = list(G.nodes)
     n = len(G.nodes)
     degrees = np.array([G.degree(node) for node in nodes])
     cliques = []
     for e in G.edges:
         (v1, v2) = e
-        if am2[v1, v2] == 0:
+        if not G2.has_edge(v1, v2):
             continue
         else:
-            am2[v1, v2] = 0
-            am2[v2, v1] = 0
+            G2.remove_edge(v1, v2)
             degrees[v1] -= 1
             degrees[v2] -= 1
             
@@ -44,9 +45,8 @@ def edge_clique_cover(G):
                 vnew = ln[np.argmax(degrees[ln])]
                 # Update am2 and degrees
                 for vold in c:
-                    if am2[vnew, vold] != 0 or am2[vold, vnew] != 0:
-                        am2[vnew, vold] = 0
-                        am2[vold, vnew] = 0
+                    if G2.has_edge(vold, vnew):
+                        G2.remove_edge(vold, vnew)
                         degrees[vold] -= 1
                         degrees[vnew] -=1
                 # Add vnew to c and update neighbors
