@@ -326,7 +326,7 @@ def grid_peps_to_cand_groups(
 
 	# Step 2: Split problem into connected components
 	if verbose:
-		print(f"Isolating connected components at {elapsed(time0)}")
+		print(f"Isolating connected components at {elapsed(time0)}. Graph has {np.sum(constraints)} edges.")
 	G = nx.Graph(constraints)
 	components = list(nx.algorithms.components.connected_components(G))
 	merged_components = [[]]

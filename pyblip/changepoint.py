@@ -1,5 +1,5 @@
 import numpy as np
-from . import create_groups, blip
+from . import create_groups, blip, linear
 
 def changepoint_cand_groups(model, **kwargs):
 	# Create inclusions
@@ -34,7 +34,7 @@ def detect_changepoints(Y, q=0.1, lm_kwargs={}, sample_kwargs={}, blip_kwargs={}
 	for j in range(T):
 		X[0:j, j] = 0
 	# Create model
-	lm = pyblip.linear.LinearSpikeSlab(
+	lm = linear.LinearSpikeSlab(
 		X=X, y=Y, **lm_kwargs
 	)
 	lm.sample(**sample_kwargs)
