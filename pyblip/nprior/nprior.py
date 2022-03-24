@@ -15,7 +15,6 @@ class NPrior():
 
 	Parameters
 	----------
-
 	X : np.array
 		``(n,p)``-shaped design matrix
 	y : np.array
@@ -40,9 +39,13 @@ class NPrior():
 	b0 : float
 		sigma2 has an inverse-gamma prior with parameters a0, b0
 
+	Methods
+	-------
+	sample :
+		Sample from the posterior via Gibbs sampling.
+
 	Notes
 	-----
-
 	See https://arxiv.org/pdf/1810.00141.pdf.
 	"""
 

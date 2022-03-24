@@ -12,7 +12,8 @@ MIN_PEP = 1e-15 # for numerical stability
 class CandidateGroup():
 	"""
 	A single candidate group as an input to BLiP.
-	Rejecting the 
+	Discovering a group asserts there is at least 
+	one signal in the group.
 
 	Parameters
 	----------
@@ -22,9 +23,6 @@ class CandidateGroup():
 		Posterior error probability (1 - PIP) for the group.
 	data : dict
 		Miscallaneous other attributes to associate with the group.
-
-	Notes: The class attributes are the same as the parameters
-	(group, pep, and data).
 	"""
 	def __init__(self, group, pep, data=None):
 		self.group = set(group)
@@ -41,7 +39,7 @@ class CandidateGroup():
 
 	def to_dict(self):
 		"""
-		Converts self into a dictionary for saving as JSON.
+		Converts ``CandidateGroup`` into a dictionary.
 		"""
 		out = dict()
 		out['group'] = list(self.group)
@@ -52,6 +50,166 @@ class CandidateGroup():
 			else:
 				out[key] = self.data[key]
 		return out
+
+
+def all_cand_groups(
+	samples,
+	X=None,
+	q=0,
+	max_pep=1,
+	max_size=25,
+	prenarrow=True,
+	prefilter_thresholds=[0, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2]
+):
+	"""
+	Creates many candidate groups by prefiltering locations at
+	various thresholds and then creating sequential and hierarchical
+	candidate groups.
+
+	Parameters
+	----------
+	samples : np.ndarray
+		An ``(N, p)``-shaped array of posterior samples,
+		where a nonzero value indicates the presence of a signal.
+	X : np.array
+		The n x p deisgn matrix. Defaults to ``None.``
+		If provided, adds hierarchical groups based 
+		on a correlation cluster of X.
+	q : float
+		The nominal level at which to control the error rate.
+	max_pep : float
+		The maximum posterior error probability allowed in
+		a candidate group. Default is 1.
+	max_size : float
+		Maximum size of a group. Default is 25.
+	prenarrow : bool
+		If true, "prenarrows" the candidate groups
+		as described in the paper. Defaults to False.
+	prefilter_thresholds : list
+		List of thresholds at which to prefilter the locations.
+
+	Returns
+	-------
+	cand_groups : list
+		A list of ``CandidateGroup`` objects.
+	"""
+	samples = samples != 0
+	marg_pips = np.mean(samples, axis=0)
+
+	# pre-filter features at various levels
+	all_groups = set()
+	all_cgs = []
+	for thresh in prefilter_thresholds:
+		rel_features = np.where(marg_pips > thresh)[0]
+		if len(rel_features) == 0:
+			continue
+
+		# Sequential groups
+		cgs = sequential_groups(
+			samples[:, rel_features],
+			q=q,
+			max_pep=max_pep,
+			max_size=max_size,
+			prenarrow=prenarrow
+		)
+		# Distance matrices
+		dms = [_samples_dist_matrix(samples[:, rel_features])]
+		if X is not None:
+			dms.append(np.abs(1 - np.corrcoef(X[:, rel_features].T)))
+		cgs.extend(hierarchical_groups(
+			samples[:, rel_features],
+			dist_matrix=dms,
+			max_pep=max_pep,
+			max_size=max_size,
+			filter_sequential=True,
+		))
+		# Correct group indices and add to all cgs
+		groups = []
+		for cg in cgs:
+			group = tuple(sorted(rel_features[list(cg.group)].tolist()))
+			if group not in all_groups:
+				cg.group = set(group)
+				all_cgs.append(cg)
+				groups.append(group)
+		all_groups = all_groups.union(groups)
+
+	return all_cgs
+
+
+def susie_groups(
+	alphas,
+	X,
+	q,
+	max_pep=1,
+	max_size=25,
+	prenarrow=False
+):
+	"""
+	Creates candidate groups based on a SuSiE fit.
+
+	Parameters
+	----------
+	alphas : np.array
+		An ``(L, p)``-shaped matrix of alphas from a SuSiE object.
+	X : np.array
+		The n x p deisgn matrix. Defaults to ``None.``
+		If provided, adds hierarchical groups based 
+		on a correlation cluster of X.
+	q : float
+		The level at which to control the error rate
+	max_pep : float
+		The maximum posterior error probability allowed in
+		a candidate group. Default is 1.
+	max_size : float
+		Maximum size of a group. Default is 25.
+	prenarrow : bool
+		If true, "prenarrows" the candidate groups
+		as described in the paper. Defaults to False.
+
+	Returns
+	-------
+	cand_groups : list
+		A list of ``CandidateGroup`` objects.
+	"""
+	L, p = alphas.shape
+	np.random.seed(1)
+	# Start with sequential groups
+	cand_groups = sequential_groups(
+		susie_alphas=alphas, 
+		q=q,
+		max_pep=max_pep,
+		max_size=max_size,
+		prenarrow=prenarrow,
+	)
+	# Add hierarchical groups
+	if X is not None:
+		dist_matrix = np.abs(1 - np.corrcoef(X.T))
+		groups_to_add = _dist_matrices_to_groups(dist_matrix)
+	else:
+		groups_to_add = []
+
+	# Add groups discovered by susie
+	for j in range(L):
+		inds = np.argsort(-1*alphas[j])
+		k = np.min(np.where(np.cumsum(alphas[j,inds]) >= 1 - q))
+		groups_to_add.append(inds[0:(k+1)].tolist())
+
+	# Add these to cand_groups
+	groups_to_add = _dedup_list_of_lists(groups_to_add)
+	for g in groups_to_add:
+		if len(g) > max_size:
+			continue
+		if np.max(g) - np.min(g) == len(g) - 1:
+			continue
+		iter_peps = 1 - alphas[:,g].sum(axis=1)
+		iter_peps[iter_peps < MIN_PEP] = MIN_PEP # for numerical stability
+		pep = np.exp(np.log(iter_peps).sum())
+		if pep < max_pep:
+			cand_groups.append(CandidateGroup(
+				group=set(g), pep=pep
+			))
+
+	return cand_groups
 
 def sequential_groups(
 	samples=None, 
@@ -83,6 +241,11 @@ def sequential_groups(
 	prenarrow : bool
 		If true, "prenarrows" the candidate groups
 		as described in the paper. Defaults to False.
+
+	Returns
+	-------
+	cand_groups : list
+		A list of ``CandidateGroup`` objects.
 	"""
 
 	if samples is not None:
@@ -146,72 +309,72 @@ def sequential_groups(
 
 	return cand_groups
 
-def susie_groups(
-	alphas,
-	X,
-	q,
+def hierarchical_groups(
+	samples,
+	dist_matrix=None,
 	max_pep=1,
 	max_size=25,
-	prenarrow=False
+	filter_sequential=False,
+	**kwargs
 ):
 	"""
-	Creates candidate groups based on a SuSiE fit.
+	Creates candidate groups by hierarchical clustering.
 
 	Parameters
 	----------
-	alphas : np.array
-		An ``(L, p)``-shaped matrix of alphas from a SuSiE object
-	X : np.array
-		The n x p deisgn matrix. If not None, will also
-		add hierarchical groups based on a correlation cluster of X.
-	q : float
-		The level at which to control the error rate
+	samples : np.ndarray
+		An ``(N, p)``-shaped array of posterior samples,
+		where a nonzero value indicates the presence of a signal.
+	dist_matrix : np.ndarray or list
+		A square numpy array corresponding to distances between locations.
+		Can also be a list of different distance matrices. The default
+		is to use a correlation matrix based on ``samples.``
 	max_pep : float
 		The maximum posterior error probability allowed in
 		a candidate group. Default is 1.
 	max_size : float
 		Maximum size of a group. Default is 25.
-	prenarrow : bool
-		If true, "prenarrows" the candidate groups
-		as described in the paper. Defaults to False.
+	filter_sequential : bool
+		If True, does not calculate PEPs for sequential (contiguous)
+		groups of variables to avoid duplicates.
+
+	Returns
+	-------
+	cand_groups : list
+		A list of ``CandidateGroup`` objects.
 	"""
-	L, p = alphas.shape
-	np.random.seed(1)
-	# Start with sequential groups
-	cand_groups = sequential_groups(
-		susie_alphas=alphas, 
-		q=q,
-		max_pep=max_pep,
-		max_size=max_size,
-		prenarrow=prenarrow,
-	)
-	# Add hierarchical groups
-	if X is not None:
-		dist_matrix = np.abs(1 - np.corrcoef(X.T))
-		groups_to_add = _dist_matrices_to_groups(dist_matrix)
-	else:
-		groups_to_add = []
+	# Initial values
+	p = samples.shape[1]
+	samples = samples != 0
+	# Trivial case where there is only one feature
+	if p == 1:
+		pep = 1 - samples.mean()
+		return [CandidateGroup(group=set([0]), pep=pep)]
 
-	# Add groups discovered by susie
-	for j in range(L):
-		inds = np.argsort(-1*alphas[j])
-		k = np.min(np.where(np.cumsum(alphas[j,inds]) >= 1 - q))
-		groups_to_add.append(inds[0:(k+1)].tolist())
+	# Estimate cov matrix from samples if 
+	# concatenations ensure no samples are all zero or one
+	if dist_matrix is None:
+		dist_matrix = _samples_dist_matrix(samples)
 
-	# Add these to cand_groups
-	groups_to_add = _dedup_list_of_lists(groups_to_add)
-	for g in groups_to_add:
-		if len(g) > max_size:
+
+	# Create groups
+	groups = _dist_matrices_to_groups(dist_matrix, **kwargs)
+	# Create candidate group objects
+	cand_groups = []
+	for group in groups:
+		gsize = len(group)
+		if gsize > max_size:
 			continue
-		if np.max(g) - np.min(g) == len(g) - 1:
-			continue
-		iter_peps = 1 - alphas[:,g].sum(axis=1)
-		iter_peps[iter_peps < MIN_PEP] = MIN_PEP # for numerical stability
-		pep = np.exp(np.log(iter_peps).sum())
+		# Possibly filter out contiguous groups
+		if filter_sequential:
+			if np.max(group) - np.min(group) == gsize - 1:
+				continue
+
+		pep = 1 - np.any(samples[:, group], axis=1).mean()
 		if pep < max_pep:
-			cand_groups.append(CandidateGroup(
-				group=set(g), pep=pep
-			))
+			cand_groups.append(
+				CandidateGroup(group=set(group), pep=pep)
+			)
 
 	return cand_groups
 
@@ -280,125 +443,6 @@ def _samples_dist_matrix(samples):
 	corr_matrix = np.corrcoef(precorr.T)
 	dist_matrix = corr_matrix + 1
 	return dist_matrix
-
-def hierarchical_groups(
-	samples,
-	dist_matrix=None,
-	max_pep=1,
-	max_size=25,
-	filter_sequential=False,
-	**kwargs
-):
-	"""
-	Parameters
-	----------
-	samples : np.ndarray
-		An ``(N, p)``-shaped array of posterior samples,
-		where a nonzero value indicates the presence of a signal.
-	dist_matrix : np.ndarray
-		a square numpy arrays corresponding to distances between locations,
-		used to hierarchically cluster the groups. Can also be a list of
-		different distance matrices.
-	max_pep : float
-		The maximum posterior error probability allowed in
-		a candidate group. Default is 1.
-	max_size : float
-		Maximum size of a group. Default is 25.
-	filter_sequential : bool
-		If True, does not calculate PEPs for sequential (contiguous)
-		groups of variables to avoid duplicates.
-	"""
-	# Initial values
-	p = samples.shape[1]
-	samples = samples != 0
-	# Trivial case where there is only one feature
-	if p == 1:
-		pep = 1 - samples.mean()
-		return [CandidateGroup(group=set([0]), pep=pep)]
-
-	# Estimate cov matrix from samples if 
-	# concatenations ensure no samples are all zero or one
-	if dist_matrix is None:
-		dist_matrix = _samples_dist_matrix(samples)
-
-
-	# Create groups
-	groups = _dist_matrices_to_groups(dist_matrix, **kwargs)
-	# Create candidate group objects
-	cand_groups = []
-	for group in groups:
-		gsize = len(group)
-		if gsize > max_size:
-			continue
-		# Possibly filter out contiguous groups
-		if filter_sequential:
-			if np.max(group) - np.min(group) == gsize - 1:
-				continue
-
-		pep = 1 - np.any(samples[:, group], axis=1).mean()
-		if pep < max_pep:
-			cand_groups.append(
-				CandidateGroup(group=set(group), pep=pep)
-			)
-
-	return cand_groups
-
-def all_cand_groups(
-	samples,
-	X=None,
-	q=0,
-	max_pep=1,
-	max_size=25,
-	prenarrow=True,
-	prefilter_thresholds=[0, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2]
-):
-	"""
-	Throws the kitchen sink at the problem and includes a very
-	large number of candidate groups.
-	"""
-	samples = samples != 0
-	marg_pips = np.mean(samples, axis=0)
-
-	# pre-filter features at various levels
-	all_groups = set()
-	all_cgs = []
-	for thresh in prefilter_thresholds:
-		rel_features = np.where(marg_pips > thresh)[0]
-		if len(rel_features) == 0:
-			continue
-
-		# Sequential groups
-		cgs = sequential_groups(
-			samples[:, rel_features],
-			q=q,
-			max_pep=max_pep,
-			max_size=max_size,
-			prenarrow=prenarrow
-		)
-		# Distance matrices
-		dms = [_samples_dist_matrix(samples[:, rel_features])]
-		if X is not None:
-			dms.append(np.abs(1 - np.corrcoef(X[:, rel_features].T)))
-		cgs.extend(hierarchical_groups(
-			samples[:, rel_features],
-			dist_matrix=dms,
-			max_pep=max_pep,
-			max_size=max_size,
-			filter_sequential=True,
-		))
-		# Correct group indices and add to all cgs
-		groups = []
-		for cg in cgs:
-			group = tuple(sorted(rel_features[list(cg.group)].tolist()))
-			if group not in all_groups:
-				cg.group = set(group)
-				all_cgs.append(cg)
-				groups.append(group)
-		all_groups = all_groups.union(groups)
-
-	return all_cgs
-
-
 
 def _prefilter(cand_groups, max_pep):
 	"""

@@ -11,6 +11,19 @@ from ..linear._linear_multi import _sample_spikeslab_multi
 
 
 class ProbitSpikeSlab(LinearSpikeSlab):
+	"""
+	Spike-and-slab model for probit regression. The arguments 
+	are identical to those for ``LinearSpikeSlab``, except
+	``y`` should be binary.
+
+	Methods
+	-------
+	sample:
+		Samples from the posterior using Gibbs sampling.
+	"""
+	def __init__(self, *args, **kwargs):
+		super(ProbitSpikeSlab, self).__init__(*args, **kwargs)
+
 
 	def sample(
 		self,
@@ -22,8 +35,6 @@ class ProbitSpikeSlab(LinearSpikeSlab):
 		max_signals_per_block=None,
 	):
 		"""
-		Samples from the probit Spike-and-Slab model.
-
 		Parameters
 		----------
 		N : int

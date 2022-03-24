@@ -12,7 +12,7 @@ def changepoint_cand_groups(model, **kwargs):
 
 def detect_changepoints(Y, q=0.1, lm_kwargs={}, sample_kwargs={}, blip_kwargs={}):
 	"""
-	Changepoint detection with BLiP and LSS gibbs sampler.
+	Changepoint detection with BLiP using the LinearSpikeSlab sampler.
 	
 	Parameters
 	----------
@@ -23,7 +23,7 @@ def detect_changepoints(Y, q=0.1, lm_kwargs={}, sample_kwargs={}, blip_kwargs={}
 	**kwargs : dict
 		Optional inputs to linear spike slab model.
 	**sample_kwargs : dict
-		Optional inputs to ``sample" method of 
+		Optional inputs to ``sample`` method of 
 		linear spike slab model.
 	**blip_kwargs : dict
 		Optional inputs to BLiP.

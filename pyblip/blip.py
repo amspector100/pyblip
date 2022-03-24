@@ -32,6 +32,7 @@ WEIGHT_FNS = {
 }
 ERROR_OPTIONS = ['fdr', 'local_fdr', 'fwer', 'pfer']
 BINARY_TOL = 1e-3
+DEFAULT_GRID_SIZES = np.around(np.logspace(np.log10(50), 4, 25))
 
 def BLiP(
 	samples=None,
@@ -63,17 +64,12 @@ def BLiP(
 		where a nonzero value indicates the presence of a signal.
 		Defaults to `None`.
 	cand_groups : list
-		A list of CandidateGroups for BLiP to optimize over. 
-		Defaults to `None`. Note either ``cand_groups`` or 
-		``samples`` must be provided.
+		A list of ``CandidateGroup`` objects. Defaults to `None`. 
+		Note either ``cand_groups`` or ``samples`` must be provided.
 	weight_fn : string or function
-		A function which takes a CandidateGroup as an input and
-		returns a (nonnegative) weight as an output. This defines
-		the expected power function. Alternatively, can be
-		'inverse_size', 'log_inverse_size', or 'prespecified', 
-		in which case each cand_group must have a weight key
-		in its data dictionary. 
-		Defaults to 'inverse_size'.
+		A function mapping ``CandidateGroup`` objects to nonnegative weights.
+		This defines the power function. Also can be 'inverse_size',
+		'log_inverse_size', or 'prespecified'. Defaults to 'inverse_size'.
 	error : string
 		The type of error rate to control. Must be one of 
 		'fdr', 'local_fdr', 'fwer', 'pfer'.
@@ -84,29 +80,57 @@ def BLiP(
 		a posterior error probability (PEP) above ``max_pep``.
 		Default: 0.5.
 	deterministic : bool
-		If True, gives a deterministic solution. Otherwise BLiP
-		may employ a randomized solution for slightly more power.
+		If True, guarantees a deterministic solution. Defaults to True.
 	verbose : bool
 		If True, gives occasional progress reports.
-	max_iters : int
-		Maximum number of line-search iterations for FDR problem.
-		Defaults to 100.
 	search_method : string
 		For FWER control, how to find the optimal parameter
 		for the LP. Either "none" or "binary." Defaults to "binary". 
+	max_iters : int
+		Maximum number of binary-search iterations for FWER problem.
+		Defaults to 100.
 	perturb : bool
-		If True, will perturb the weight function 
+		If True, will perturb the weight function. Defaults to True. 
 	return_problem_status : False
 		If True, will return extra information about the problem.
 
 	Returns
 	-------
 	detections : list
-		A list of CandidateGroups consisting of the detected signals
-		and the regions containing them.
+		A list of ``CandidateGroup`` objects, which asserts that each 
+		group contains at least one signal.
 	problem_status : dict
 		A dict containing information about the BLiP optimization problem.
-		Only returned if ``return_problem_status==True``.	
+		Only returned if ``return_problem_status=True``.
+
+	Examples
+	--------
+	Here we fit BLiP to perform resolution-adaptive variable selection
+	for a Gaussian linear model: ::
+		import numpy as np
+		import scipy.linalg
+		## Synthetic data generating process with AR1 design matrix
+		n, p, nsignals, rho = 100, 500, 20, 0.95
+		c = np.cumsum(np.zeros(p) + np.log(rho)) - np.log(rho)
+		cov = scipy.linalg.toeplitz(np.exp(c))
+		X = np.dot(np.random.randn(n, p), np.linalg.cholesky(cov).T)
+		# Sparse coefficients for linear model
+		beta = np.zeros(p)
+		signal_locations = np.random.choice(np.arange(p), nsignals)
+		beta[signal_locations] = np.random.randn(nsignals)
+		y = np.dot(X, beta) + np.random.randn(n)
+
+		## Fit linear spike and slab model
+		import pyblip
+		lm = pyblip.linear.LinearSpikeSlab(X=X, y=y)
+		lm.sample(N=1000, chains=10, bsize=2)
+
+		## Run BLiP
+		detections = pyblip.blip.BLiP(
+			samples=lm.betas,
+			q=0.1,
+			error='fdr'
+		)
 	"""
 	# Parse arguments
 	time0 = time.time()
@@ -173,6 +197,7 @@ def BLiP(
 
 	# perturb to avoid degeneracy in some cases
 	if perturb:
+		orig_weights = weights.copy()
 		weights = np.array([
 			w*(1 + 0.0001*np.random.uniform()) for w in weights]
 		)
@@ -272,7 +297,7 @@ def BLiP(
 		if error == 'fwer' and binary_search:
 			selections = np.around(selections)
 
-	for cand_group, sprob, weight in zip(cand_groups, selections, weights):
+	for cand_group, sprob, weight in zip(cand_groups, selections, orig_weights):
 		cand_group.data['sprob'] = sprob
 		cand_group.data['weight'] = weight
 
@@ -296,41 +321,37 @@ def BLiP(
 
 def BLiP_cts(
 	locs,
-	grid_sizes,
+	grid_sizes=DEFAULT_GRID_SIZES,
 	weight_fn=weight_fns.inverse_radius_weight,
 	max_pep=0.25,
 	max_blip_size=1500,
 	**kwargs
 ):
 	"""
-	BLiP when the set of locations is continuous, e.g. when
+	BLiP when the set of locations is continuous, e.g., when
 	working with image data.
 
 	Parameters
 	----------
 	locs : np.ndarray
-		A (N, num_disc, d)-dimensional array. Here, N is the
-		number of samples from the posterior, d is the number
-		of dimensions of the space, and each point corresponds
-		to a signal in a particular posterior sample. NANs do not
-		count as signals (this is useful in case there are different
-		numbers of signals at each posterior iteration.)
+		A (N, num_disc, d)-dimensional array, where ``N`` is the
+		number of posterior samples, ``d`` is the dimension.
+		Each point represents to a signal in a posterior sample. 
+		NANs are ignored (useful when the number of signals changes
+		between posterior iterations.)
 	grid_sizes : list or np.ndarray
-		List of grid-sizes to split up the locations.
-	weight_fn : string or function
-			A function which takes a CandidateGroup as an input and
-			returns a (nonnegative) weight as an output. This defines
-			the expected power function. Alternatively, can be
-			'inverse_size' or 'log_inverse_size'. Defaults to
-			'inverse_size'.
+		List of grid sizes to split up the locations.
 	kwargs : dict
 		Additional arguments to pass to the underlying BLiP call.
 
 	Returns
 	-------
 	detections : list
-		A list of CandidateGroups consisting of the detected signals
-		and the regions containing them.
+		A list of ``CandidateGroup`` objects, which asserts that each 
+		group contains at least one signal.
+	problem_status : dict
+		A dict containing information about the BLiP optimization problem.
+		Only returned if ``return_problem_status=True``.	
 	"""
 
 	# Normalize locations

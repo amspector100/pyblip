@@ -8,6 +8,57 @@ from ._linear import _sample_spikeslab
 from ._linear_multi import _sample_spikeslab_multi
 
 class LinearSpikeSlab():
+	"""
+
+	Spike-and-slab model for linear regression.
+
+	Parameters
+	----------
+	X : np.array
+		``(n,p)``-shaped design matrix.
+	y : np.array
+		``n``-length array of responses.
+	p0 : float
+		Prior probability that any coefficient equals zero.
+	update_p0 : bool
+		If True, updates ``p0`` using a Beta hyperprior on ``p0``.
+		Else, the value of ``p0`` is fixed.
+	p0_a0 : float
+		If ``update_p0`` is True, ``p0`` has a
+		Beta(``p0_a0``, ``p0_b0``, ``min_p0``) hyperprior.
+	p0_b0 : float
+		If ``update_p0`` is True, ``p0`` has a
+		TruncBeta(``p0_a0``, ``p0_b0``, ``min_p0``) hyperprior.
+	min_p0 : float
+		Minimum value for ``p0`` as specified by the prior.
+	sigma2 : float
+		Variance of y given X.
+	update_sigma2 : bool
+		If True, imposes an InverseGamma hyperprior on ``sigma2``.
+		Else, the value of ``sigma2`` is fixed.
+	sigma2_a0 : float
+		If ``update_sigma2`` is True, ``sigma2`` has an
+		InvGamma(``sigma2_a0``, ``sigma2_b0``) hyperprior.
+	sigma2_b0 : float
+		If ``update_sigma2`` is True, ``sigma2`` has an
+		InvGamma(``sigma2_a0``, ``sigma2_b0``) hyperprior.
+	tau2 : float
+		Prior variance on nonzero coefficients.
+	update_tau2 : bool
+		If True, imposes an InverseGamma hyperprior on ``tau2``.
+		Else, the value of ``tau2`` is fixed.
+	tau2_a0 : float
+		If ``update_sigma2`` is True, ``tau2`` has an
+		InvGamma(``tau2_a0``, ``tau2_b0``) hyperprior.
+	tau2_b0 : float
+		If ``update_sigma2`` is True, ``tau2`` has an
+		InvGamma(``tau2_a0``, ``tau2_b0``) hyperprior.
+
+	Methods
+	-------
+	sample:
+		Samples from the posterior using Gibbs sampling.
+	"""
 
 	def __init__(
 		self,
