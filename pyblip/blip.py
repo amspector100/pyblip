@@ -34,7 +34,7 @@ ERROR_OPTIONS = ['fdr', 'local_fdr', 'fwer', 'pfer']
 BINARY_TOL = 1e-3
 
 def BLiP(
-	inclusions=None,
+	samples=None,
 	cand_groups=None,
 	weight_fn='inverse_size',
 	error='fdr',
@@ -49,24 +49,23 @@ def BLiP(
 	**kwargs
 ):
 	"""
-	Given samples from a posterior and/or a set of candidate
-	groups, performs resolution-adaptive signal detection
-	to maximize power while controlling the FWER, FDR, local FDR,
-	or PFER.
+	Given samples from a posterior or a list of ``CandidateGroup``
+	objects, performs resolution-adaptive signal detection
+	to maximize power while controlling (e.g.) the FDR.
 
 	Note: when working with image data or a continuous set
-	of locations, use ``BLiP_cts``.
+	of locations, consider using ``BLiP_cts``.
 
-	Paramters
-	---------
-	inclusions : np.array
+	Parameters
+	----------
+	samples : np.array
 		An ``(N, p)``-shaped array of posterior samples,
 		where a nonzero value indicates the presence of a signal.
 		Defaults to `None`.
 	cand_groups : list
 		A list of CandidateGroups for BLiP to optimize over. 
 		Defaults to `None`. Note either ``cand_groups`` or 
-		``inclusions`` must be provided.
+		``samples`` must be provided.
 	weight_fn : string or function
 		A function which takes a CandidateGroup as an input and
 		returns a (nonnegative) weight as an output. This defines
@@ -114,8 +113,8 @@ def BLiP(
 	error = str(error).lower()
 	if error not in ERROR_OPTIONS:
 		raise ValueError(f"error type {error} must be one of {ERROR_OPTIONS}")
-	if cand_groups is None and inclusions is None:
-		raise ValueError("At least one of cand_groups and inclusions must be provided.")
+	if cand_groups is None and samples is None:
+		raise ValueError("At least one of cand_groups and samples must be provided.")
 	if error in ['fwer', 'pfer', 'local_fdr']:
 		max_pep = min(max_pep, q) # this is optimal for all but error == 'fdr'
 	solver = kwargs.get("solver", DEFAULT_SOLVER)
@@ -125,14 +124,14 @@ def BLiP(
 	# Create cand groups if necessary
 	if cand_groups is None:
 		cand_groups = create_groups.sequential_groups(
-			inclusions=inclusions,
+			samples=samples,
 			q=q,
 			max_pep=max_pep,
 			prenarrow=True,
 		)
 		cand_groups.extend(
 			create_groups.hierarchical_groups(
-				inclusions=inclusions,
+				samples=samples,
 				max_pep=max_pep,
 				filter_sequential=True
 			)
@@ -198,7 +197,7 @@ def BLiP(
 	v_var = cp.Variable(pos=True) # for FDR only
 
 	# We perform a binary for FWER to find optimal v.
-	if inclusions is not None and error == 'fwer' and search_method == 'binary':
+	if samples is not None and error == 'fwer' and search_method == 'binary':
 		binary_search = True
 	else:
 		binary_search = False
@@ -236,7 +235,7 @@ def BLiP(
 	elif binary_search:
 		v_upper = q * nrel + 1 # upper bnd in search (min val not controlling FWER)
 		v_lower = 0 # lower bnd in search (max val controlling FWER)
-		inclusions = inclusions != 0
+		samples = samples != 0
 		for niter in range(max_iters):
 			# Change parametrized constraint
 			v_current = (v_upper + v_lower)/2
@@ -248,10 +247,10 @@ def BLiP(
 			# Round selections---could do something smarter, TODO
 			selections = np.around(selections)
 			# Compute exact FWER
-			false_disc = np.zeros(inclusions.shape[0]).astype(bool)
+			false_disc = np.zeros(samples.shape[0]).astype(bool)
 			for gj in np.where(selections > BINARY_TOL)[0]:
 				group = list(cand_groups[gj].group)
-				false_disc = false_disc | np.all(inclusions[:, group] == 0, axis=1)
+				false_disc = false_disc | np.all(samples[:, group] == 0, axis=1)
 			fwer = false_disc.mean()
 			if fwer > q:
 				v_upper = v_current

@@ -1,0 +1,2 @@
+1. run make html
+2. run sphinx-reload ./

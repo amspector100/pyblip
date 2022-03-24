@@ -54,7 +54,7 @@ class CandidateGroup():
 		return out
 
 def sequential_groups(
-	inclusions=None, 
+	samples=None, 
 	susie_alphas=None,
 	q=0,
 	max_pep=1,
@@ -66,7 +66,7 @@ def sequential_groups(
 
 	Parameters
 	----------
-	inclusions : np.ndarray
+	samples : np.ndarray
 		An ``(N, p)``-shaped array of posterior samples,
 		where a nonzero value indicates the presence of a signal.
 	susie_alphas : np.ndarray
@@ -85,12 +85,12 @@ def sequential_groups(
 		as described in the paper. Defaults to False.
 	"""
 
-	if inclusions is not None:
-		inclusions = inclusions != 0 # make boolean
-		N, p = inclusions.shape
+	if samples is not None:
+		samples = samples != 0 # make boolean
+		N, p = samples.shape
 		max_size = min(max_size, p)
 		cum_incs = np.zeros((N, p+1))
-		cum_incs[:, 1:(p+1)] = np.cumsum(inclusions, axis=1)
+		cum_incs[:, 1:(p+1)] = np.cumsum(samples, axis=1)
 
 		# Compute successive groups of size m
 		all_PEPs = {}
@@ -109,7 +109,7 @@ def sequential_groups(
 			cumdiffs[cumdiffs < MIN_PEP] = MIN_PEP
 			all_PEPs[m] = np.exp(np.log(cumdiffs).sum(axis=0))
 	else:
-		raise ValueError("Either inclusions or susie_alphas must be specified.")
+		raise ValueError("Either samples or susie_alphas must be specified.")
 
 	# the index is the first (smallest) variable in the group which has size m
 	active_inds = {}
@@ -267,11 +267,11 @@ def _dist_matrices_to_groups(
 			all_groups = _dedup_list_of_lists(all_groups)
 	return all_groups
 
-def _inclusions_dist_matrix(inclusions):
-	p = inclusions.shape[1]
+def _samples_dist_matrix(samples):
+	p = samples.shape[1]
 	precorr = np.concatenate(
 		[
-			inclusions,
+			samples,
 			np.zeros((1, p)),
 			np.ones((1, p))
 		],
@@ -282,7 +282,7 @@ def _inclusions_dist_matrix(inclusions):
 	return dist_matrix
 
 def hierarchical_groups(
-	inclusions,
+	samples,
 	dist_matrix=None,
 	max_pep=1,
 	max_size=25,
@@ -292,7 +292,7 @@ def hierarchical_groups(
 	"""
 	Parameters
 	----------
-	inclusions : np.ndarray
+	samples : np.ndarray
 		An ``(N, p)``-shaped array of posterior samples,
 		where a nonzero value indicates the presence of a signal.
 	dist_matrix : np.ndarray
@@ -309,17 +309,17 @@ def hierarchical_groups(
 		groups of variables to avoid duplicates.
 	"""
 	# Initial values
-	p = inclusions.shape[1]
-	inclusions = inclusions != 0
+	p = samples.shape[1]
+	samples = samples != 0
 	# Trivial case where there is only one feature
 	if p == 1:
-		pep = 1 - inclusions.mean()
+		pep = 1 - samples.mean()
 		return [CandidateGroup(group=set([0]), pep=pep)]
 
-	# Estimate cov matrix from inclusions if 
-	# concatenations ensure no inclusions are all zero or one
+	# Estimate cov matrix from samples if 
+	# concatenations ensure no samples are all zero or one
 	if dist_matrix is None:
-		dist_matrix = _inclusions_dist_matrix(inclusions)
+		dist_matrix = _samples_dist_matrix(samples)
 
 
 	# Create groups
@@ -335,7 +335,7 @@ def hierarchical_groups(
 			if np.max(group) - np.min(group) == gsize - 1:
 				continue
 
-		pep = 1 - np.any(inclusions[:, group], axis=1).mean()
+		pep = 1 - np.any(samples[:, group], axis=1).mean()
 		if pep < max_pep:
 			cand_groups.append(
 				CandidateGroup(group=set(group), pep=pep)
@@ -344,7 +344,7 @@ def hierarchical_groups(
 	return cand_groups
 
 def all_cand_groups(
-	inclusions,
+	samples,
 	X=None,
 	q=0,
 	max_pep=1,
@@ -356,8 +356,8 @@ def all_cand_groups(
 	Throws the kitchen sink at the problem and includes a very
 	large number of candidate groups.
 	"""
-	inclusions = inclusions != 0
-	marg_pips = np.mean(inclusions, axis=0)
+	samples = samples != 0
+	marg_pips = np.mean(samples, axis=0)
 
 	# pre-filter features at various levels
 	all_groups = set()
@@ -369,18 +369,18 @@ def all_cand_groups(
 
 		# Sequential groups
 		cgs = sequential_groups(
-			inclusions[:, rel_features],
+			samples[:, rel_features],
 			q=q,
 			max_pep=max_pep,
 			max_size=max_size,
 			prenarrow=prenarrow
 		)
 		# Distance matrices
-		dms = [_inclusions_dist_matrix(inclusions[:, rel_features])]
+		dms = [_samples_dist_matrix(samples[:, rel_features])]
 		if X is not None:
 			dms.append(np.abs(1 - np.corrcoef(X[:, rel_features].T)))
 		cgs.extend(hierarchical_groups(
-			inclusions[:, rel_features],
+			samples[:, rel_features],
 			dist_matrix=dms,
 			max_pep=max_pep,
 			max_size=max_size,

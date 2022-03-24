@@ -107,7 +107,7 @@ class TestMCMC(unittest.TestCase):
 		):
 			sample_kwargs = dict(N=1500, chains=1, burn=500)
 			model.sample(**sample_kwargs)
-			# Test inclusions
+			# Test samples
 			pips = (model.betas != 0).mean(axis=0)
 			m_nn_pip = np.min(pips[beta != 0])
 			self.assertTrue(
@@ -151,7 +151,7 @@ class TestMCMC(unittest.TestCase):
 			lm.sample(**sample_kwargs)
 			# Run BLiP and check power
 			detections = pyblip.blip.BLiP(
-				inclusions=lm.betas != 0,
+				samples=lm.betas != 0,
 				error='fdr',
 				q=0.1
 			)

@@ -22,6 +22,10 @@ class ProbitSpikeSlab(LinearSpikeSlab):
 		max_signals_per_block=None,
 	):
 		"""
+		Samples from the probit Spike-and-Slab model.
+
+		Parameters
+		----------
 		N : int
 			Number of samples per chain
 		burn : int

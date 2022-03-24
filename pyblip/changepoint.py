@@ -2,12 +2,12 @@ import numpy as np
 from . import create_groups, blip, linear
 
 def changepoint_cand_groups(model, **kwargs):
-	# Create inclusions
-	inclusions = model.betas != 0
-	inclusions[:, 0] = 0 # don't want to discovery time = 0
+	# Create samples
+	samples = model.betas != 0
+	samples[:, 0] = 0 # don't want to discovery time = 0
 	# Sequential cand groups
 	return create_groups.sequential_groups(
-		inclusions=inclusions, **kwargs
+		samples=samples, **kwargs
 	)
 
 def detect_changepoints(Y, q=0.1, lm_kwargs={}, sample_kwargs={}, blip_kwargs={}):
@@ -38,7 +38,7 @@ def detect_changepoints(Y, q=0.1, lm_kwargs={}, sample_kwargs={}, blip_kwargs={}
 		X=X, y=Y, **lm_kwargs
 	)
 	lm.sample(**sample_kwargs)
-	# Create inclusions
+	# Create cand groups
 	cand_groups = changepoint_cand_groups(lm)
 	# Run BLiP
 	return blip.BLiP(

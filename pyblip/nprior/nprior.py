@@ -10,8 +10,8 @@ from ._nprior import _nprior_sample
 
 class NPrior():
 	"""
-	Implements NPrior samplers from 
-	https://arxiv.org/pdf/1810.00141.pdf
+	Implements Neuronized Prior sampler for spike-and-slab
+	regression.
 
 	Parameters
 	----------
@@ -39,6 +39,11 @@ class NPrior():
 		sigma2 has an inverse-gamma prior with parameters a0, b0
 	b0 : float
 		sigma2 has an inverse-gamma prior with parameters a0, b0
+
+	Notes
+	-----
+
+	See https://arxiv.org/pdf/1810.00141.pdf.
 	"""
 
 	def __init__(

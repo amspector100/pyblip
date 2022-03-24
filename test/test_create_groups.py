@@ -94,7 +94,7 @@ class TestCandGroups(CheckCandGroups):
 	def test_sequential_groups(self):
 		
 		# Generate fake data
-		inclusions = np.array([
+		samples = np.array([
 			[0, 1, 0, 0, 1],
 			[1, 1, 0, 1, 1],
 			[1, 0, 0, 0, 1],
@@ -103,7 +103,7 @@ class TestCandGroups(CheckCandGroups):
 		])
 
 		cand_groups = create_groups.sequential_groups(
-			inclusions, max_size=4
+			samples, max_size=4
 		)
 		expected_length = int(5+4+3+2) - 1 # ignores columm with all zeros
 		self.assertTrue(
@@ -113,7 +113,7 @@ class TestCandGroups(CheckCandGroups):
 		# Check that max_peps works
 		for max_pep in [0.2, 0.4, 0.6, 0.8, 1]:
 			cand_groups = create_groups.sequential_groups(
-				inclusions, max_size=4, max_pep=max_pep
+				samples, max_size=4, max_pep=max_pep
 			)
 			max_pep_obs = max([x.pep for x in cand_groups])
 			self.assertTrue(
@@ -127,7 +127,7 @@ class TestCandGroups(CheckCandGroups):
 		q = 0.9
 		max_pep = 0.5
 		cand_groups = create_groups.sequential_groups(
-			inclusions, prenarrow=True, q=q, max_pep=max_pep
+			samples, prenarrow=True, q=q, max_pep=max_pep
 		)
 		self.check_unique(cand_groups)
 		groups = [x.group for x in cand_groups]
@@ -150,17 +150,17 @@ class TestCandGroups(CheckCandGroups):
 		)
 
 	def test_all_groups(self):
-		# generate fake inclusions
+		# generate fake samples
 		n = 1000
 		p = 500
 		probs = np.random.beta(0.4, 0.4, size=(p,))
-		inclusions = np.random.binomial(
+		samples = np.random.binomial(
 			1, probs, size=(n,p)
 		)
 		X = np.random.randn(n,p)
 		# get all groups
 		cgs = create_groups.all_cand_groups(
-			inclusions=inclusions, 
+			samples=samples, 
 			X=X,
 			prenarrow=False,
 			max_pep=1
@@ -168,9 +168,9 @@ class TestCandGroups(CheckCandGroups):
 		# Check that no groups are repeated
 		self.check_unique(cgs)
 		# check if there are issues with no nonnulls
-		inclusions = np.zeros((n, p))
+		samples = np.zeros((n, p))
 		cgs = create_groups.all_cand_groups(
-			inclusions=inclusions, 
+			samples=samples, 
 			X=X,
 			prenarrow=False,
 			max_pep=0.5
@@ -180,7 +180,7 @@ class TestCandGroups(CheckCandGroups):
 	def test_hierarchical_groups(self):
 		
 		# Generate fake data
-		inclusions = np.array([
+		samples = np.array([
 			[0, 1, 0, 0, 1],
 			[1, 1, 0, 1, 1],
 			[1, 0, 0, 0, 1],
@@ -190,7 +190,7 @@ class TestCandGroups(CheckCandGroups):
 
 		# Check that the default includes the expected groups
 		cand_groups = create_groups.hierarchical_groups(
-			inclusions, filter_sequential=False
+			samples, filter_sequential=False
 		)
 		groups = [x.group for x in cand_groups]
 		expected = [set([i]) for i in [0,1,3,4]] + [set([0,1]), set([0,1,2,3,4])]
@@ -203,7 +203,7 @@ class TestCandGroups(CheckCandGroups):
 		# Check that max_peps works
 		for max_pep in [0.2, 0.4, 0.6, 0.8, 1]:
 			cand_groups = create_groups.hierarchical_groups(
-				inclusions, max_size=4, max_pep=max_pep
+				samples, max_size=4, max_pep=max_pep
 			)
 			max_pep_obs = max([x.pep for x in cand_groups])
 			self.assertTrue(

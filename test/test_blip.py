@@ -34,15 +34,15 @@ class CheckDetections(unittest.TestCase):
 			f"average pfer {pfer} is larger than nominal level {v}"
 		)
 
-	def check_fwer_control(self, detections, inclusions, q):
+	def check_fwer_control(self, detections, samples, q):
 		if isinstance(detections[0], CandidateGroup):
 			detections = [detections]
 		fwer = 0
 		for d in detections:
-			false_disc = np.zeros(inclusions.shape[0]).astype(bool)
+			false_disc = np.zeros(samples.shape[0]).astype(bool)
 			for cand_group in d:
 				false_disc = false_disc | np.all(
-					inclusions[:, list(cand_group.group)] == 0, axis=1
+					samples[:, list(cand_group.group)] == 0, axis=1
 				)
 			fwer += false_disc.mean() / len(detections)
 		self.assertTrue(
@@ -154,7 +154,7 @@ class TestBLiP(CheckDetections):
 		# Fit linear model
 		lm = pyblip.linear.LinearSpikeSlab(X=X, y=y)
 		lm.sample(N=500, chains=5)
-		inclusions = lm.betas != 0
+		samples = lm.betas != 0
 
 		# Test FDR, FWER, PFER, local FDR control.
 		# Note this just test that the Bayesian FDR is controlled
@@ -162,17 +162,17 @@ class TestBLiP(CheckDetections):
 		# the frequentist FDR (which would be expensive).
 		for q in [0.01, 0.05, 0.1, 0.2]:
 			detections = pyblip.blip.BLiP(
-				inclusions=inclusions,
+				samples=samples,
 				error='fwer',
 				q=q,
 				search_method='binary'
 			)
 			self.check_disjoint(detections)
-			self.check_fwer_control(detections=detections, inclusions=inclusions, q=q)
+			self.check_fwer_control(detections=detections, samples=samples, q=q)
 
 			# Test FDR control
 			detections = pyblip.blip.BLiP(
-				inclusions=inclusions,
+				samples=samples,
 				error='fdr',
 				q=q,
 				deterministic=True
@@ -182,7 +182,7 @@ class TestBLiP(CheckDetections):
 
 			# PFER control
 			detections = pyblip.blip.BLiP(
-				inclusions=inclusions,
+				samples=samples,
 				weight_fn='log_inverse_size',
 				error='pfer',
 				q=q,
