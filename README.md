@@ -22,21 +22,19 @@ BLiP uses [cvxpy](https://www.cvxpy.org/install/index.html) to efficiently solve
 
 ``pip`` should automatically install ``pyblip``'s dependencies. However, if installation fails, it is likely for one of three reasons:
 
-	(a) You are having trouble installing ``cvxpy``
-
-	By default, installing ``cvxpy`` also installs several heavy-duty convex solvers, and installation of these solvers can fail. However, ``pyblip`` only requires a few solvers. As a result, it can be easier to install a lightweight version of ``cvxpy`` with the following command:
-
-		``pip install cvxpy-base``
+1. You are having trouble installing ``cvxpy``
 	
-	and then install the ``SCS`` or ``CBC`` solvers. Please see the [cvxpy installation instructions](https://www.cvxpy.org/install/index.html) for more details.
+By default, installing ``cvxpy`` also installs several heavy-duty convex solvers, and installation of these solvers can fail. However, ``pyblip`` only requires a few solvers. As a result, it can be easier to install a lightweight version of ``cvxpy`` with the following command:
+	``pip install cvxpy-base``
+and then install the ``SCS`` or ``CBC`` solvers. Please see the [cvxpy installation instructions](https://www.cvxpy.org/install/index.html) for more details.
 
-	(b) You are having trouble installing ``cython``.
+2. You are having trouble installing ``cython``.
 
-	The Bayesian samplers in ``pyblip`` are written in cython to improve performance. If your system is having trouble installing cython, see the [cython website](https://cython.org/) for instructions.
+The Bayesian samplers in ``pyblip`` are written in cython to improve performance. If your system is having trouble installing cython, see the [cython website](https://cython.org/) for instructions.
 
-	(c) You are having trouble installing ``cvxopt``.
+3. You are having trouble installing ``cvxopt``.
 
-	``pyblip`` requires ``cvxopt`` because installing ``cvxopt`` is often the easiest way to get access to a solver for mixed-integer linear programs. If you are having trouble installing ``cvxopt``, you can avoid this problem by specifying ``deterministic=False`` whenever running BLiP. Alternatively, you can follow the instructions on the [cvxpy website](https://www.cvxpy.org/install/index.html) to install any other mixed-integer solver.
+``pyblip`` requires ``cvxopt`` because installing ``cvxopt`` is often the easiest way to get access to a solver for mixed-integer linear programs. If you are having trouble installing ``cvxopt``, you can avoid this problem by specifying ``deterministic=False`` whenever running BLiP. Alternatively, you can follow the instructions on the [cvxpy website](https://www.cvxpy.org/install/index.html) to install any other mixed-integer solver.
 
 ## Quick start
 
