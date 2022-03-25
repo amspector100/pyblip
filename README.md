@@ -2,9 +2,9 @@
 
 ## Introduction
 
-In many applications, we can tell that a signal of interest exists but cannot perfectly "localize" it. For example, when regressing an outcome $Y$ on highly correlated covariates $(X_1, X_2)$, the data may suggest that *at least* one of $(X_1, X_2)$ influences $Y$, but it may be challenging to tell which of $(X_1, X_2)$ is important. Likewise, in genetic fine-mapping, biologists may have high confidence that a gene influences a disease without knowing precisely which genetic variants cause the disease. Similar problems arise in many settings with spatial or temporal structure, including genetic fine-mapping, change-point detection and astronomical point-source detection.
+In many applications, we can tell that a signal of interest exists but cannot perfectly "localize" it. For example, when regressing an outcome *Y* on highly correlated covariates (X<sub>1</sub>, X<sub>2</sub>), the data may suggest that *at least* one of (X<sub>1</sub>, X<sub>2</sub>) influences *Y*, but it may be challenging to tell which of (X<sub>1</sub>, X<sub>2</sub>) is important. Likewise, in genetic fine-mapping, biologists may have high confidence that a gene influences a disease without knowing precisely which genetic variants cause the disease. Similar problems arise in many settings with spatial or temporal structure, including genetic fine-mapping, change-point detection and astronomical point-source detection.
 
-**Bayesian Linear Programming** (BLiP) is a method which jointly detects as many signals as possible while localizing them as precisely as possible. BLiP can wrap on top of nearly any Bayesian model or algorithm, and it will return a set of regions which each contain at least one signal with high probability. For example, in regression problems, BLiP might return the region $(X_1, X_2)$, which suggests that at least one of $(X_1, X_2)$ is an important variable. BLiP also makes these regions as narrow as possible, meaning that (roughly speaking) it will perfectly localize signals whenever this is possible! 
+**Bayesian Linear Programming** (BLiP) is a method which jointly detects as many signals as possible while localizing them as precisely as possible. BLiP can wrap on top of nearly any Bayesian model or algorithm, and it will return a set of regions which each contain at least one signal with high probability. For example, in regression problems, BLiP might return the region (X<sub>1</sub>, X<sub>2</sub>), which suggests that at least one of (X<sub>1</sub>, X<sub>2</sub>) is an important variable. BLiP also makes these regions as narrow as possible, meaning that (roughly speaking) it will perfectly localize signals whenever this is possible! 
 
 ``pyblip`` is an efficient python implementation of BLiP. For convenience, it also includes fast Bayesian samplers for linear regression, probit regresion, and change point detection, since BLiP can wrap on top of any of these methods.
 
@@ -50,7 +50,7 @@ Here, we apply BLiP to perform variable selection in a sparse linear regression 
 	c = np.cumsum(np.zeros(p) + np.log(rho)) - np.log(rho)
 	cov = scipy.linalg.toeplitz(np.exp(c))
 	X = np.dot(np.random.randn(n, p), np.linalg.cholesky(cov).T)
-	
+
 	# Sparse coefficients for linear model
 	beta = np.zeros(p)
 	signal_locations = np.random.choice(np.arange(p), nsignals)
@@ -69,9 +69,9 @@ The second step is to apply BLiP directly on top of the posterior samples of the
 
 ```
 	detections = pyblip.blip.BLiP(
-        samples=lm.betas,
-        q=0.1,
-        error='fdr'
+		samples=lm.betas,
+		q=0.1,
+		error='fdr'
 	)
 	for x in detections:
 		print("BLiP has detected a signal among {x.group}!")
