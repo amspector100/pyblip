@@ -10,6 +10,7 @@ Welcome to pyblip's documentation!
    :maxdepth: 2
    :caption: Contents:
         
+   installation
    apiref
 
 Indices and tables

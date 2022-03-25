@@ -24,6 +24,8 @@ class CheckDetections(unittest.TestCase):
 			all_locs = all_locs.union(group)
 
 	def check_pfer_control(self, detections, v):
+		if len(detections) == 0:
+			return True
 		if isinstance(detections[0], CandidateGroup):
 			detections = [detections]
 		pfer = 0
@@ -35,6 +37,8 @@ class CheckDetections(unittest.TestCase):
 		)
 
 	def check_fwer_control(self, detections, samples, q):
+		if len(detections) == 0:
+			return True
 		if isinstance(detections[0], CandidateGroup):
 			detections = [detections]
 		fwer = 0
@@ -51,6 +55,8 @@ class CheckDetections(unittest.TestCase):
 		)
 
 	def check_fdr_control(self, detections, q):
+		if len(detections) == 0:
+			return True
 		if isinstance(detections[0], CandidateGroup):
 			detections = [detections]
 		fdr = 0
@@ -102,9 +108,9 @@ class TestBinarizeSelections(CheckDetections):
 
 		self.check_pfer_control(all_detections, v=v + 0.25 / np.sqrt(reps))
 
-	def test_pfer_complex(self):
+	def test_pfer_fdr_complex(self):
 
-		# Test a much more complicated example
+		# Test a much more complicated example for deterministic=False
 		np.random.seed(123)
 		cand_groups = []
 		p = 30
@@ -123,23 +129,27 @@ class TestBinarizeSelections(CheckDetections):
 				}
 			))
 		vs = [0.1, 0.2, 0.5, 1.5, 2]
+		reps = 16 # for randomized solution
 		for v in vs:
-			detections = blip.binarize_selections(
-				cand_groups, q=v, error='pfer', deterministic=True
-			)
-			self.check_disjoint(detections)
-			self.check_pfer_control(detections=detections, v=v)
-			# For smallest v
-			if v == vs[0]:
-				reps = 64
-				all_detections = []
-				for _ in range(reps):
-					detections = blip.binarize_selections(
-						cand_groups, q=v, error='pfer', deterministic=False
-					)
-					self.check_disjoint(detections)
-					all_detections.append(detections)
-				self.check_pfer_control(all_detections, v=v + 0.25 / np.sqrt(reps))
+			for error, check_fn, kwargs in zip(
+				['pfer', 'fdr'], 
+				[self.check_pfer_control, self.check_fdr_control],
+				[dict(v=v), dict(q=v)]
+			):
+				# Deterministic solution
+				detections = blip.binarize_selections(
+					cand_groups, q=v, error=error, deterministic=True
+				)
+				self.check_disjoint(detections)
+				check_fn(detections=detections, **kwargs)
+				# For smallest v
+				if v == vs[0]:
+					for _ in range(reps):
+						detections = blip.binarize_selections(
+							cand_groups, q=v, error=error, deterministic=False
+						)
+						self.check_disjoint(detections)
+						check_fn(detections, **kwargs)
 
 class TestBLiP(CheckDetections):
 

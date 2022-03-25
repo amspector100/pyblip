@@ -3,10 +3,9 @@ import numpy as np
 import scipy as sp
 from scipy import linalg
 from scipy import stats
-from knockpy.utilities import apply_pool # TODO deal with this later
 
 from ._nprior import _nprior_sample
-
+from ..utilities import apply_pool
 
 class NPrior():
 	"""
@@ -119,14 +118,6 @@ class NPrior():
 			Will log progress after ``log_interval`` iterations. 
 			Defaults to None (no logging).
 		"""
-		## Previous implementation
-		##
-		# self.alphas = out['alphas']
-		# self.ws = out['ws']
-		# self.betas = out['betas']
-		# self.sigma2s = out['sigma2s']
-		# self.alpha0s = out['alpha0s']
-		# self.p0s = out['p0s']
 		time0 = time.time()
 		if log_interval is None:
 			log_interval = N + burn + 1

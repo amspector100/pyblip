@@ -1,0 +1,11 @@
+## To push to Pypi:
+1. Check the version please prior to packaging"
+2. sudo python3 setup.py sdist
+3. twine upload dist/{specific_version_egg}
+4. install new version
+
+## Using Test PyPi
+1. Do the same as before but with twine upload --repository testpypi dist/{specific_version_egg}
+2. Install with: 
+python3 -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pyblip
+

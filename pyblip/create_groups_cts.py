@@ -6,8 +6,8 @@ import time
 import copy
 import numpy as np
 import networkx as nx
-
 import warnings
+
 from .utilities import elapsed
 from .create_groups import CandidateGroup
 from .ecc import edge_clique_cover

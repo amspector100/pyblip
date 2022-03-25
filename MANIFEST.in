@@ -1,0 +1,9 @@
+### Include
+
+recursive-include pyblip *.py
+recursive-include pyblip *.pyx
+recursive-include pyblip *.pxd
+
+### Exclude
+
+recursive-exclude pyblip *.c

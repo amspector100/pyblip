@@ -14,4 +14,4 @@ all = [
 	"cython_utils"
 ]
 
-__version__ = "0.00"
+__version__ = "0.1.4"

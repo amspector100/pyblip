@@ -1,11 +1,8 @@
 import time
 import warnings
-
+import copy
 import numpy as np
-import pandas as pd
-
-import cvxpy as cp ## faster for linear programs
-
+import cvxpy as cp
 from . import create_groups, create_groups_cts, weight_fns
 
 
@@ -399,6 +396,7 @@ def binarize_selections(
 	problem_status=None,
 	return_problem_status=False,
 	tol=1e-3,
+	nsample=10,
 ):
 	"""
 	Parameters
@@ -411,6 +409,8 @@ def binarize_selections(
 		The error to control: one of 'fdr', 'fwer', 'pfer', 'local_fdr'
 	deterministic : bool 
 		If True, will not use a randomized solution.
+	nsample : int
+		Number of samples for randomized version.
 
 	Returns
 	-------
@@ -461,35 +461,62 @@ def binarize_selections(
 		inds = np.argsort(-1*marg_probs)
 
 		# Initialize
-		eliminated_groups = np.zeros(ngroups).astype(bool)
-		selected_groups = []
-		# Loop through features and sample
-		for feature in inds:
-			if np.all(eliminated_groups):
-				break
-			# Subset of available groups which contain the feature
-			available_flags = (A[:,feature] == 1) & (~eliminated_groups)
-			if np.any(available_flags):
-				# Scale up conditional probabilities
-				prev_elim = (A[:,feature] == 1) & (eliminated_groups)
-				scale = 1 - sprobs[prev_elim].sum()
-				new_probs = sprobs[available_flags] / scale
-				# select nothing with some probability
-				if np.random.uniform() <= 1 - new_probs.sum():
-					eliminated_groups[A[:,feature] == 1] = True
-					continue
-				# else select one of the groups containing feature
-				selected_group = np.where(
-					np.random.multinomial(1, new_probs / new_probs.sum()) != 0
-				)[0][0]
-				selected_group = np.where(available_flags)[0][selected_group]
-				selected_groups.append(selected_group)
-				# eliminate all mutually exclusive features
-				group_features = np.where(A[selected_group]==1)[0]
-				new_elim_groups = np.sum(A[:, group_features], axis=1) != 0
-				eliminated_groups[new_elim_groups] = True
+		expected_powers = np.zeros(nsample)
+		all_outputs = []
+		for ii in range(nsample):
+			eliminated_groups = np.zeros(ngroups).astype(bool)
+			selected_groups = []
+			# Loop through features and sample
+			for feature in inds:
+				if np.all(eliminated_groups):
+					break
+				# Subset of available groups which contain the feature
+				available_flags = (A[:,feature] == 1) & (~eliminated_groups)
+				if np.any(available_flags):
+					# Scale up conditional probabilities
+					prev_elim = (A[:,feature] == 1) & (eliminated_groups)
+					scale = 1 - sprobs[prev_elim].sum()
+					new_probs = sprobs[available_flags] / scale
+					# select nothing with some probability
+					if np.random.uniform() <= 1 - new_probs.sum():
+						eliminated_groups[A[:,feature] == 1] = True
+						continue
+					# else select one of the groups containing feature
+					selected_group = np.where(
+						np.random.multinomial(1, new_probs / new_probs.sum()) != 0
+					)[0][0]
+					selected_group = np.where(available_flags)[0][selected_group]
+					selected_groups.append(selected_group)
+					# eliminate all mutually exclusive features
+					group_features = np.where(A[selected_group]==1)[0]
+					new_elim_groups = np.sum(A[:, group_features], axis=1) != 0
+					eliminated_groups[new_elim_groups] = True
 
-		output.extend([nontriv_cand_groups[sg] for sg in selected_groups])
+			output_ii = copy.deepcopy(output)
+			output_ii.extend([nontriv_cand_groups[sg] for sg in selected_groups])
+			# For local FDR, no backtracking required
+			if error != 'local_fdr':
+				# Iteratively eliminate highest PEP discovery to ensure FDR or PFER control
+				if error == 'fdr':
+					haterror = np.mean([x.pep for x in output_ii])
+				else:
+					haterror = np.sum([x.pep for x in output_ii])
+				output_ii = sorted(output_ii, key=lambda x: x.pep)
+				while haterror > q:
+					output_ii = output_ii[0:-1]
+					if len(output_ii) == 0:
+						break
+					elif error == 'fdr':
+						haterror = np.mean([x.pep for x in output_ii])
+					else:
+						haterror = np.sum([x.pep for x in output_ii])
+			# Append
+			expected_powers[ii] = np.sum([
+				(1-x.pep) * x.data['weight'] for x in output_ii
+			])
+			all_outputs.append(output_ii)
+
+		output = all_outputs[np.argmax(expected_powers)]
 
 	else:
 		# Construct integer linear program 

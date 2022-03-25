@@ -1,11 +1,9 @@
 """ Functions for creating candidate groups from posterior samples"""
 import copy
 import numpy as np
-from tqdm import tqdm
 # Tree methods from scipy
 import scipy.cluster.hierarchy as hierarchy
 import scipy.spatial.distance as ssd
-### todo : a generic function which performs prenarrowing
 
 MIN_PEP = 1e-15 # for numerical stability
 

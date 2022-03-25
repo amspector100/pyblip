@@ -40,7 +40,7 @@ class TestMCMC(unittest.TestCase):
 		cond_var = Sigma22 - np.dot(Sigma12.T, np.dot(S11I, Sigma12))
 
 		for bsize in [1, 2]:
-			lm.sample(N=M, bsize=bsize, burn=M)
+			lm.sample(N=M, bsize=bsize, burn=M, chains=1)
 			post_mean = lm.betas.mean(axis=0)
 			np.testing.assert_array_almost_equal(
 				post_mean,
@@ -166,47 +166,6 @@ class TestMCMC(unittest.TestCase):
 					power == 1,
 					f"power for p=2, sparsity=1, max_nnull_per_block={max_nnull_size} should be 1 but power={power}"
 				)
-	# def test_probit_estimation(self):
-
-	# 	# Sample data with high SNR
-	# 	np.random.seed(123)
-	# 	X, y, beta = context.generate_regression_data(
-	# 		a=1, b=1, y_dist='probit', p=50, n=1000, sparsity=0.25, coeff_dist='uniform'
-	# 	)
-
-	# 	# Fit probit model
-	# 	probit = pyblip.probit.ProbitSpikeSlab(X=X, y=y)
-	# 	probit.sample(N=1000, burn=200, chains=1)
-
-	# def test_linear_sparsity_estimation(self):
-
-	# 	# Sample data
-	# 	np.random.seed(123)
-	# 	N = 200
-	# 	chains = 5
-	# 	coeff_size = 1
-	# 	for sparsity in [0.01, 0.05]:
-	# 		X, y, beta = context.generate_regression_data(
-	# 			a=5, b=1, y_dist='linear', p=500, n=200, sparsity=sparsity,
-	# 			coeff_size=coeff_size, coeff_dist='normal'
-	# 		)
-
-	# 		# Fit linear model
-	# 		p0 = 1 - sparsity
-	# 		lm = pyblip.linear.LinearSpikeSlab(X=X, y=y)
-	# 		lm.sample(N=N, chains=chains)
-	# 		self.assertTrue(
-	# 			np.abs(np.mean(lm.p0s) - p0) < 0.1,
-	# 			f"Est p0 for linspikeslab is {np.mean(lm.p0s)}, true p0={p0}"
-	# 		)
-	# 		nlm = pyblip.nprior.NPrior(X=X, y=y, tauw2=1)
-	# 		nlm.sample(N=N, chains=chains)
-
-	# 		self.assertTrue(
-	# 			np.abs(np.mean(nlm.p0s) - p0) < 0.1,
-	# 			f"Est p0 for nprior is {np.mean(nlm.p0s)}, true p0={p0}"
-	# 		)
 
 if __name__ == "__main__":
 	unittest.main()
-TestMCMC
