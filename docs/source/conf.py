@@ -67,6 +67,7 @@ exclude_patterns = ['_build', '**.ipynb_checkpoints']
 html_theme = 'sphinx_rtd_theme'
 html_theme_options = {
     'display_version':True,
+    'navigation_depth':3,
 }
 
 
