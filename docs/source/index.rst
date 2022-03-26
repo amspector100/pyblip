@@ -17,7 +17,8 @@ Welcome to pyblip's documentation!
    usage
    apiref
    BLiP paper <https://www.google.com/search?q=blip>
-
+   pyblip GitHuB <https://github.com/amspector100/pyblip>
+   blipr GitHuB <https://github.com/amspector100/blipr>
 
 Indices and tables
 ==================
