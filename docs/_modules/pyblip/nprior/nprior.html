@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pyblip.nprior.nprior &mdash; pyblip 0.1.4 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> pyblip
+          </a>
+              <div class="version">
+                0.1.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apiref.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">pyblip</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>pyblip.nprior.nprior</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for pyblip.nprior.nprior</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy</span> <span class="k">as</span> <span class="nn">sp</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">linalg</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">stats</span>
+
+<span class="kn">from</span> <span class="nn">._nprior</span> <span class="kn">import</span> <span class="n">_nprior_sample</span>
+<span class="kn">from</span> <span class="nn">..utilities</span> <span class="kn">import</span> <span class="n">apply_pool</span>
+
+<div class="viewcode-block" id="NPrior"><a class="viewcode-back" href="../../../apiref.html#pyblip.nprior.nprior.NPrior">[docs]</a><span class="k">class</span> <span class="nc">NPrior</span><span class="p">():</span>
+	<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">	Implements Neuronized Prior sampler for spike-and-slab</span>
+<span class="sd">	regression.</span>
+
+<span class="sd">	Parameters</span>
+<span class="sd">	----------</span>
+<span class="sd">	X : np.array</span>
+<span class="sd">		``(n,p)``-shaped design matrix</span>
+<span class="sd">	y : np.array</span>
+<span class="sd">		``(n,)``-shaped vector of response data</span>
+<span class="sd">	p0 : float</span>
+<span class="sd">		The initial parameter for the proportion of nulls.</span>
+<span class="sd">		Defaults to 1 - min(0.01, 1/p).</span>
+<span class="sd">	update_p0 : bool</span>
+<span class="sd">		If true, will update p0 throughout MCMC sampling using</span>
+<span class="sd">		a uniform hyperprior.</span>
+<span class="sd">	min_p0 : float</span>
+<span class="sd">		If updating p0 throughout uniform sampling, will force </span>
+<span class="sd">		p0 to be above ``min_p0``. This can dramatically speed</span>
+<span class="sd">		up computation in very high-dimensional settings.</span>
+<span class="sd">	sigma_prior_type : integer</span>
+<span class="sd">		If 0, assumes sigma2 is conditionally independent of the</span>
+<span class="sd">		coefficients given the residuals.</span>
+<span class="sd">	tauw2 : float</span>
+<span class="sd">		prior variance of the weight parameter</span>
+<span class="sd">	a0 : float</span>
+<span class="sd">		sigma2 has an inverse-gamma prior with parameters a0, b0</span>
+<span class="sd">	b0 : float</span>
+<span class="sd">		sigma2 has an inverse-gamma prior with parameters a0, b0</span>
+
+<span class="sd">	Methods</span>
+<span class="sd">	-------</span>
+<span class="sd">	sample :</span>
+<span class="sd">		Sample from the posterior via Gibbs sampling.</span>
+
+<span class="sd">	Notes</span>
+<span class="sd">	-----</span>
+<span class="sd">	See https://arxiv.org/pdf/1810.00141.pdf.</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+
+	<span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+		<span class="bp">self</span><span class="p">,</span>
+		<span class="n">X</span><span class="p">,</span>
+		<span class="n">y</span><span class="p">,</span> 
+		<span class="n">tauw2</span><span class="p">,</span>
+		<span class="n">p0</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+		<span class="n">update_p0</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+		<span class="n">min_p0</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span>
+		<span class="n">sigma_prior_type</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+		<span class="n">sigma_a0</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+		<span class="n">sigma_b0</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+		<span class="n">alpha0_a0</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+		<span class="n">alpha0_b0</span><span class="o">=</span><span class="mi">1</span>
+	<span class="p">):</span>
+
+		<span class="c1"># Save parameters and data</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">p</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">X</span> <span class="o">=</span> <span class="n">X</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">y</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">tauw2</span> <span class="o">=</span> <span class="n">tauw2</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">sigma_prior_type</span> <span class="o">=</span> <span class="n">sigma_prior_type</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">sigma_a0</span> <span class="o">=</span> <span class="n">sigma_a0</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">sigma_b0</span> <span class="o">=</span> <span class="n">sigma_b0</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">alpha0_a0</span> <span class="o">=</span> <span class="n">alpha0_a0</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">alpha0_b0</span> <span class="o">=</span> <span class="n">alpha0_b0</span>
+		<span class="k">if</span> <span class="n">p0</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+			<span class="n">p0</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">p0_init</span> <span class="o">=</span> <span class="n">p0</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">update_p0</span> <span class="o">=</span> <span class="n">update_p0</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">min_p0</span> <span class="o">=</span> <span class="n">min_p0</span>
+
+		<span class="c1"># Pre-initialization</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">XT</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">T</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">Xl2s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<div class="viewcode-block" id="NPrior.sample"><a class="viewcode-back" href="../../../apiref.html#pyblip.nprior.nprior.NPrior.sample">[docs]</a>	<span class="k">def</span> <span class="nf">sample</span><span class="p">(</span>
+		<span class="bp">self</span><span class="p">,</span>
+		<span class="n">N</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+		<span class="n">burn</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+		<span class="n">chains</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+		<span class="n">num_processes</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+		<span class="n">joint_sample_W</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+		<span class="n">group_alpha_update</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+		<span class="n">log_interval</span><span class="o">=</span><span class="kc">None</span>
+	<span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">		Parameters</span>
+<span class="sd">		----------</span>
+<span class="sd">		N : int</span>
+<span class="sd">			The number of samples to draw from the chain</span>
+<span class="sd">		burn : int</span>
+<span class="sd">			The burn-in period for each chain.</span>
+<span class="sd">		chains : int</span>
+<span class="sd">			The number of independent MCMC chains to run.</span>
+<span class="sd">		num_processes : int</span>
+<span class="sd">			The number of processes to run the chains.</span>
+<span class="sd">		joint_sample_W : bool</span>
+<span class="sd">			If true, will jointly sample the &quot;W&quot; variables</span>
+<span class="sd">			at each iteration before individually resampling</span>
+<span class="sd">			alpha and W. This can improve sample efficiency</span>
+<span class="sd">			but is a computational bottleneck in high dimensions.</span>
+<span class="sd">		group_alpha_update : bool</span>
+<span class="sd">			If true, does a joint group-move update to estimate </span>
+<span class="sd">			the sparsity. Else, uses the standard conjugacy</span>
+<span class="sd">			rules for a Uniform prior on the sparsity.</span>
+<span class="sd">		log_interval : int</span>
+<span class="sd">			Will log progress after ``log_interval`` iterations. </span>
+<span class="sd">			Defaults to None (no logging).</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+		<span class="n">time0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+		<span class="k">if</span> <span class="n">log_interval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+			<span class="n">log_interval</span> <span class="o">=</span> <span class="n">N</span> <span class="o">+</span> <span class="n">burn</span> <span class="o">+</span> <span class="mi">1</span>
+
+
+		<span class="n">out</span> <span class="o">=</span> <span class="n">apply_pool</span><span class="p">(</span>
+			<span class="n">_nprior_sample</span><span class="p">,</span>
+			<span class="n">constant_inputs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+				<span class="n">X</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span>
+				<span class="n">y</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+				<span class="n">tauw2</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tauw2</span><span class="p">,</span>
+				<span class="n">p0_init</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">p0_init</span><span class="p">,</span>
+				<span class="n">min_p0</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">min_p0</span><span class="p">,</span>
+				<span class="n">update_p0</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">update_p0</span><span class="p">,</span>
+				<span class="n">sigma_a0</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_a0</span><span class="p">,</span>
+				<span class="n">sigma_b0</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_b0</span><span class="p">,</span>
+				<span class="n">alpha0_a0</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha0_a0</span><span class="p">,</span>
+				<span class="n">alpha0_b0</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha0_b0</span><span class="p">,</span>
+				<span class="n">sigma_prior_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_prior_type</span><span class="p">,</span>
+				<span class="n">joint_sample_W</span><span class="o">=</span><span class="n">joint_sample_W</span><span class="p">,</span>
+				<span class="n">group_alpha_update</span><span class="o">=</span><span class="n">group_alpha_update</span><span class="p">,</span>
+				<span class="n">log_interval</span><span class="o">=</span><span class="n">log_interval</span><span class="p">,</span>
+				<span class="n">time0</span><span class="o">=</span><span class="n">time0</span>
+			<span class="p">),</span>
+			<span class="n">N</span><span class="o">=</span><span class="p">[</span><span class="n">N</span><span class="o">+</span><span class="n">burn</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">chains</span><span class="p">)],</span>
+			<span class="n">num_processes</span><span class="o">=</span><span class="n">num_processes</span>
+		<span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">alphas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="s1">&#39;alphas&#39;</span><span class="p">][</span><span class="n">burn</span><span class="p">:]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">out</span><span class="p">])</span> 
+		<span class="bp">self</span><span class="o">.</span><span class="n">ws</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="s1">&#39;ws&#39;</span><span class="p">][</span><span class="n">burn</span><span class="p">:]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">out</span><span class="p">])</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">betas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="s1">&#39;betas&#39;</span><span class="p">][</span><span class="n">burn</span><span class="p">:]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">out</span><span class="p">])</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">sigma2s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="s1">&#39;sigma2s&#39;</span><span class="p">][</span><span class="n">burn</span><span class="p">:]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">out</span><span class="p">])</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">alpha0s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="s1">&#39;alpha0s&#39;</span><span class="p">][</span><span class="n">burn</span><span class="p">:]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">out</span><span class="p">])</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">p0s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="s1">&#39;p0s&#39;</span><span class="p">][</span><span class="n">burn</span><span class="p">:]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">out</span><span class="p">])</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Asher Spector.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Reference &mdash; pyblip 0.1.4 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Tutorials" href="usage.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> pyblip
+          </a>
+              <div class="version">
+                0.1.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Tutorials</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-pyblip.blip">BLiP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#creating-candidate-groups">Creating Candidate Groups</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-pyblip.create_groups">Variable selection / discrete locations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-pyblip.create_groups_cts">Continuous sets of locations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-pyblip.ecc">Edge clique cover</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-pyblip.weight_fns">Weight functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#bayesian-samplers">Bayesian Samplers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-pyblip.linear.linear">Linear Spike and Slab</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-pyblip.probit.probit">Probit Spike and Slab</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-pyblip.nprior.nprior">Neuronized Priors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-pyblip.changepoint">Changepoint Detection</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference external" href="https://www.google.com/search?q=blip">BLiP paper</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">pyblip</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>API Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/apiref.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Permalink to this headline"></a></h1>
+<div class="section" id="module-pyblip.blip">
+<span id="blip"></span><h2>BLiP<a class="headerlink" href="#module-pyblip.blip" title="Permalink to this headline"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.blip.BLiP">
+<span class="sig-prename descclassname"><span class="pre">pyblip.blip.</span></span><span class="sig-name descname"><span class="pre">BLiP</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cand_groups</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_fn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'inverse_size'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'fdr'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_pep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deterministic</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">perturb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'binary'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_problem_status</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/blip.html#BLiP"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.blip.BLiP" title="Permalink to this definition"></a></dt>
+<dd><p>Given samples from a posterior or a list of <code class="docutils literal notranslate"><span class="pre">CandidateGroup</span></code>
+objects, performs resolution-adaptive signal detection
+to maximize power while controlling (e.g.) the FDR.</p>
+<p>Note: when working with image data or a continuous set
+of locations, consider using <code class="docutils literal notranslate"><span class="pre">BLiP_cts</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>samples</strong><span class="classifier">np.array</span></dt><dd><p>An <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">p)</span></code>-shaped array of posterior samples,
+where a nonzero value indicates the presence of a signal.
+Defaults to <cite>None</cite>.</p>
+</dd>
+<dt><strong>cand_groups</strong><span class="classifier">list</span></dt><dd><p>A list of <code class="docutils literal notranslate"><span class="pre">CandidateGroup</span></code> objects. Defaults to <cite>None</cite>. 
+Note either <code class="docutils literal notranslate"><span class="pre">cand_groups</span></code> or <code class="docutils literal notranslate"><span class="pre">samples</span></code> must be provided.</p>
+</dd>
+<dt><strong>weight_fn</strong><span class="classifier">string or function</span></dt><dd><p>A function mapping <code class="docutils literal notranslate"><span class="pre">CandidateGroup</span></code> objects to nonnegative weights.
+This defines the power function. Also can be ‘inverse_size’,
+‘log_inverse_size’, or ‘prespecified’. Defaults to ‘inverse_size’.</p>
+</dd>
+<dt><strong>error</strong><span class="classifier">string</span></dt><dd><p>The type of error rate to control. Must be one of 
+‘fdr’, ‘local_fdr’, ‘fwer’, ‘pfer’.</p>
+</dd>
+<dt><strong>q</strong><span class="classifier">float</span></dt><dd><p>The level at which to control the error rate.</p>
+</dd>
+<dt><strong>max_pep</strong><span class="classifier">float</span></dt><dd><p>BLiP automatically filters out candidate groups with
+a posterior error probability (PEP) above <code class="docutils literal notranslate"><span class="pre">max_pep</span></code>.
+Default: 0.5.</p>
+</dd>
+<dt><strong>deterministic</strong><span class="classifier">bool</span></dt><dd><p>If True, guarantees a deterministic solution. Defaults to True.</p>
+</dd>
+<dt><strong>verbose</strong><span class="classifier">bool</span></dt><dd><p>If True, gives occasional progress reports.</p>
+</dd>
+<dt><strong>search_method</strong><span class="classifier">string</span></dt><dd><p>For FWER control, how to find the optimal parameter
+for the LP. Either “none” or “binary.” Defaults to “binary”.</p>
+</dd>
+<dt><strong>max_iters</strong><span class="classifier">int</span></dt><dd><p>Maximum number of binary-search iterations for FWER problem.
+Defaults to 100.</p>
+</dd>
+<dt><strong>perturb</strong><span class="classifier">bool</span></dt><dd><p>If True, will perturb the weight function. Defaults to True.</p>
+</dd>
+<dt><strong>return_problem_status</strong><span class="classifier">False</span></dt><dd><p>If True, will return extra information about the problem.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>detections</strong><span class="classifier">list</span></dt><dd><p>A list of <code class="docutils literal notranslate"><span class="pre">CandidateGroup</span></code> objects, which asserts that each 
+group contains at least one signal.</p>
+</dd>
+<dt><strong>problem_status</strong><span class="classifier">dict</span></dt><dd><p>A dict containing information about the BLiP optimization problem.
+Only returned if <code class="docutils literal notranslate"><span class="pre">return_problem_status=True</span></code>.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p>Here we fit BLiP to perform resolution-adaptive variable selection
+for a Gaussian linear model:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.linalg</span>
+<span class="c1">## Synthetic data generating process with AR1 design matrix</span>
+<span class="n">n</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">nsignals</span><span class="p">,</span> <span class="n">rho</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mf">0.95</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">rho</span><span class="p">))</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">rho</span><span class="p">)</span>
+<span class="n">cov</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">toeplitz</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">p</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">cholesky</span><span class="p">(</span><span class="n">cov</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+<span class="c1"># Sparse coefficients for linear model</span>
+<span class="n">beta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<span class="n">signal_locations</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="n">nsignals</span><span class="p">)</span>
+<span class="n">beta</span><span class="p">[</span><span class="n">signal_locations</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">nsignals</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+
+<span class="c1">## Fit linear spike and slab model</span>
+<span class="kn">import</span> <span class="nn">pyblip</span>
+<span class="n">lm</span> <span class="o">=</span> <span class="n">pyblip</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">LinearSpikeSlab</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">)</span>
+<span class="n">lm</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">N</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">bsize</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="c1">## Run BLiP</span>
+<span class="n">detections</span> <span class="o">=</span> <span class="n">pyblip</span><span class="o">.</span><span class="n">blip</span><span class="o">.</span><span class="n">BLiP</span><span class="p">(</span>
+        <span class="n">samples</span><span class="o">=</span><span class="n">lm</span><span class="o">.</span><span class="n">betas</span><span class="p">,</span>
+        <span class="n">q</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+        <span class="n">error</span><span class="o">=</span><span class="s1">&#39;fdr&#39;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.blip.BLiP_cts">
+<span class="sig-prename descclassname"><span class="pre">pyblip.blip.</span></span><span class="sig-name descname"><span class="pre">BLiP_cts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">locs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grid_sizes=array([50.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">45.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">41.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">36.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">33.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">30.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">27.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">24.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">22.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">19.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">17.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">16.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">14.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">13.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">11.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">10.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">9.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">8.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">8.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">7.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">6.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">5.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">5.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">4.</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">4.])</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_fn=&lt;function</span> <span class="pre">inverse_radius_weight&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_pep=0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_blip_size=1500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rescale=True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">**kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/blip.html#BLiP_cts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.blip.BLiP_cts" title="Permalink to this definition"></a></dt>
+<dd><p>BLiP when the set of locations is continuous, e.g., when
+working with image data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>locs</strong><span class="classifier">np.ndarray</span></dt><dd><p>A (N, num_disc, d)-dimensional array, where <code class="docutils literal notranslate"><span class="pre">N</span></code> is the
+number of posterior samples, <code class="docutils literal notranslate"><span class="pre">d</span></code> is the dimension.
+Each point represents to a signal in a posterior sample. 
+NANs are ignored (useful when the number of signals changes
+between posterior iterations.)</p>
+</dd>
+<dt><strong>grid_sizes</strong><span class="classifier">list or np.ndarray</span></dt><dd><p>List of grid sizes to split up the locations.</p>
+</dd>
+<dt><strong>rescale</strong><span class="classifier">bool</span></dt><dd><p>If True, normalizes locs to ensure they are all between 0 and 1.
+If <code class="docutils literal notranslate"><span class="pre">rescale</span></code> is False and this is not true, the function
+will error.</p>
+</dd>
+<dt><strong>kwargs</strong><span class="classifier">dict</span></dt><dd><p>Additional arguments to pass to the underlying BLiP call.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>detections</strong><span class="classifier">list</span></dt><dd><p>A list of <code class="docutils literal notranslate"><span class="pre">CandidateGroup</span></code> objects, which asserts that each 
+group contains at least one signal.</p>
+</dd>
+<dt><strong>problem_status</strong><span class="classifier">dict</span></dt><dd><p>A dict containing information about the BLiP optimization problem.
+Only returned if <code class="docutils literal notranslate"><span class="pre">return_problem_status=True</span></code>.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.blip.binarize_selections">
+<span class="sig-prename descclassname"><span class="pre">pyblip.blip.</span></span><span class="sig-name descname"><span class="pre">binarize_selections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cand_groups</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deterministic</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">problem_status</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_problem_status</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nsample</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/blip.html#binarize_selections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.blip.binarize_selections" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>cand_groups</strong><span class="classifier">list</span></dt><dd><p>list of candidate groups.</p>
+</dd>
+<dt><strong>q</strong><span class="classifier">float</span></dt><dd><p>Level at which to control the error rate.</p>
+</dd>
+<dt><strong>error</strong><span class="classifier">string</span></dt><dd><p>The error to control: one of ‘fdr’, ‘fwer’, ‘pfer’, ‘local_fdr’</p>
+</dd>
+<dt><strong>deterministic</strong><span class="classifier">bool</span></dt><dd><p>If True, will not use a randomized solution.</p>
+</dd>
+<dt><strong>nsample</strong><span class="classifier">int</span></dt><dd><p>Number of samples for randomized version.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>detections</strong><span class="classifier">list</span></dt><dd><p>List of candidate groups which have been detected.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="creating-candidate-groups">
+<h2>Creating Candidate Groups<a class="headerlink" href="#creating-candidate-groups" title="Permalink to this headline"></a></h2>
+<div class="section" id="module-pyblip.create_groups">
+<span id="variable-selection-discrete-locations"></span><h3>Variable selection / discrete locations<a class="headerlink" href="#module-pyblip.create_groups" title="Permalink to this headline"></a></h3>
+<p>Functions for creating candidate groups from posterior samples</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyblip.create_groups.CandidateGroup">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyblip.create_groups.</span></span><span class="sig-name descname"><span class="pre">CandidateGroup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/create_groups.html#CandidateGroup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.create_groups.CandidateGroup" title="Permalink to this definition"></a></dt>
+<dd><p>A single candidate group as an input to BLiP.
+Discovering a group asserts there is at least 
+one signal in the group.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>group</strong><span class="classifier">list or set</span></dt><dd><p>Set of locations in the group.</p>
+</dd>
+<dt><strong>pep</strong><span class="classifier">float</span></dt><dd><p>Posterior error probability (1 - PIP) for the group.</p>
+</dd>
+<dt><strong>data</strong><span class="classifier">dict</span></dt><dd><p>Miscallaneous other attributes to associate with the group.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Methods</p>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyblip.create_groups.CandidateGroup.to_dict" title="pyblip.create_groups.CandidateGroup.to_dict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_dict</span></code></a>()</p></td>
+<td><p>Converts <code class="docutils literal notranslate"><span class="pre">CandidateGroup</span></code> into a dictionary.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="pyblip.create_groups.CandidateGroup.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/create_groups.html#CandidateGroup.to_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.create_groups.CandidateGroup.to_dict" title="Permalink to this definition"></a></dt>
+<dd><p>Converts <code class="docutils literal notranslate"><span class="pre">CandidateGroup</span></code> into a dictionary.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.create_groups.all_cand_groups">
+<span class="sig-prename descclassname"><span class="pre">pyblip.create_groups.</span></span><span class="sig-name descname"><span class="pre">all_cand_groups</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">samples</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_pep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prenarrow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefilter_thresholds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0,</span> <span class="pre">0.01,</span> <span class="pre">0.02,</span> <span class="pre">0.03,</span> <span class="pre">0.05,</span> <span class="pre">0.1,</span> <span class="pre">0.2]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/create_groups.html#all_cand_groups"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.create_groups.all_cand_groups" title="Permalink to this definition"></a></dt>
+<dd><p>Creates many candidate groups by prefiltering locations at
+various thresholds and then creating sequential and hierarchical
+candidate groups.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>samples</strong><span class="classifier">np.ndarray</span></dt><dd><p>An <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">p)</span></code>-shaped array of posterior samples,
+where a nonzero value indicates the presence of a signal.</p>
+</dd>
+<dt><strong>X</strong><span class="classifier">np.array</span></dt><dd><p>The n x p deisgn matrix. Defaults to <code class="docutils literal notranslate"><span class="pre">None.</span></code>
+If provided, adds hierarchical groups based 
+on a correlation cluster of X.</p>
+</dd>
+<dt><strong>q</strong><span class="classifier">float</span></dt><dd><p>The nominal level at which to control the error rate.</p>
+</dd>
+<dt><strong>max_pep</strong><span class="classifier">float</span></dt><dd><p>The maximum posterior error probability allowed in
+a candidate group. Default is 1.</p>
+</dd>
+<dt><strong>max_size</strong><span class="classifier">float</span></dt><dd><p>Maximum size of a group. Default is 25.</p>
+</dd>
+<dt><strong>prenarrow</strong><span class="classifier">bool</span></dt><dd><p>If true, “prenarrows” the candidate groups
+as described in the paper. Defaults to False.</p>
+</dd>
+<dt><strong>prefilter_thresholds</strong><span class="classifier">list</span></dt><dd><p>List of thresholds at which to prefilter the locations.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>cand_groups</strong><span class="classifier">list</span></dt><dd><p>A list of <code class="docutils literal notranslate"><span class="pre">CandidateGroup</span></code> objects.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.create_groups.hierarchical_groups">
+<span class="sig-prename descclassname"><span class="pre">pyblip.create_groups.</span></span><span class="sig-name descname"><span class="pre">hierarchical_groups</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">samples</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dist_matrix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_pep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_sequential</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/create_groups.html#hierarchical_groups"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.create_groups.hierarchical_groups" title="Permalink to this definition"></a></dt>
+<dd><p>Creates candidate groups by hierarchical clustering.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>samples</strong><span class="classifier">np.ndarray</span></dt><dd><p>An <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">p)</span></code>-shaped array of posterior samples,
+where a nonzero value indicates the presence of a signal.</p>
+</dd>
+<dt><strong>dist_matrix</strong><span class="classifier">np.ndarray or list</span></dt><dd><p>A square numpy array corresponding to distances between locations.
+Can also be a list of different distance matrices. The default
+is to use a correlation matrix based on <code class="docutils literal notranslate"><span class="pre">samples.</span></code></p>
+</dd>
+<dt><strong>max_pep</strong><span class="classifier">float</span></dt><dd><p>The maximum posterior error probability allowed in
+a candidate group. Default is 1.</p>
+</dd>
+<dt><strong>max_size</strong><span class="classifier">float</span></dt><dd><p>Maximum size of a group. Default is 25.</p>
+</dd>
+<dt><strong>filter_sequential</strong><span class="classifier">bool</span></dt><dd><p>If True, does not calculate PEPs for sequential (contiguous)
+groups of variables to avoid duplicates.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>cand_groups</strong><span class="classifier">list</span></dt><dd><p>A list of <code class="docutils literal notranslate"><span class="pre">CandidateGroup</span></code> objects.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.create_groups.sequential_groups">
+<span class="sig-prename descclassname"><span class="pre">pyblip.create_groups.</span></span><span class="sig-name descname"><span class="pre">sequential_groups</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">susie_alphas</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_pep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prenarrow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/create_groups.html#sequential_groups"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.create_groups.sequential_groups" title="Permalink to this definition"></a></dt>
+<dd><p>Calculates all sequential candidate groups below max_size.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>samples</strong><span class="classifier">np.ndarray</span></dt><dd><p>An <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">p)</span></code>-shaped array of posterior samples,
+where a nonzero value indicates the presence of a signal.</p>
+</dd>
+<dt><strong>susie_alphas</strong><span class="classifier">np.ndarray</span></dt><dd><p>As an alternative to posterior samples, users may specify an
+L x p matrix of alphas from a SuSiE object. However, calling
+<code class="docutils literal notranslate"><span class="pre">susie_groups</span></code> is recommended instead.</p>
+</dd>
+<dt><strong>q</strong><span class="classifier">float</span></dt><dd><p>The nominal level at which to control the error rate.</p>
+</dd>
+<dt><strong>max_pep</strong><span class="classifier">float</span></dt><dd><p>The maximum posterior error probability allowed in
+a candidate group. Default is 1.</p>
+</dd>
+<dt><strong>max_size</strong><span class="classifier">float</span></dt><dd><p>Maximum size of a group. Default is 25.</p>
+</dd>
+<dt><strong>prenarrow</strong><span class="classifier">bool</span></dt><dd><p>If true, “prenarrows” the candidate groups
+as described in the paper. Defaults to False.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>cand_groups</strong><span class="classifier">list</span></dt><dd><p>A list of <code class="docutils literal notranslate"><span class="pre">CandidateGroup</span></code> objects.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.create_groups.susie_groups">
+<span class="sig-prename descclassname"><span class="pre">pyblip.create_groups.</span></span><span class="sig-name descname"><span class="pre">susie_groups</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alphas</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_pep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prenarrow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/create_groups.html#susie_groups"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.create_groups.susie_groups" title="Permalink to this definition"></a></dt>
+<dd><p>Creates candidate groups based on a SuSiE fit.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>alphas</strong><span class="classifier">np.array</span></dt><dd><p>An <code class="docutils literal notranslate"><span class="pre">(L,</span> <span class="pre">p)</span></code>-shaped matrix of alphas from a SuSiE object.</p>
+</dd>
+<dt><strong>X</strong><span class="classifier">np.array</span></dt><dd><p>The n x p deisgn matrix. Defaults to <code class="docutils literal notranslate"><span class="pre">None.</span></code>
+If provided, adds hierarchical groups based 
+on a correlation cluster of X.</p>
+</dd>
+<dt><strong>q</strong><span class="classifier">float</span></dt><dd><p>The level at which to control the error rate</p>
+</dd>
+<dt><strong>max_pep</strong><span class="classifier">float</span></dt><dd><p>The maximum posterior error probability allowed in
+a candidate group. Default is 1.</p>
+</dd>
+<dt><strong>max_size</strong><span class="classifier">float</span></dt><dd><p>Maximum size of a group. Default is 25.</p>
+</dd>
+<dt><strong>prenarrow</strong><span class="classifier">bool</span></dt><dd><p>If true, “prenarrows” the candidate groups
+as described in the paper. Defaults to False.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>cand_groups</strong><span class="classifier">list</span></dt><dd><p>A list of <code class="docutils literal notranslate"><span class="pre">CandidateGroup</span></code> objects.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-pyblip.create_groups_cts">
+<span id="continuous-sets-of-locations"></span><h3>Continuous sets of locations<a class="headerlink" href="#module-pyblip.create_groups_cts" title="Permalink to this headline"></a></h3>
+<p>Creates candidate groups when signals could appear anywhere in a
+continuous d-dimensional space.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.create_groups_cts.grid_peps">
+<span class="sig-prename descclassname"><span class="pre">pyblip.create_groups_cts.</span></span><span class="sig-name descname"><span class="pre">grid_peps</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">locs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grid_sizes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_signals</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_centers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_pep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'square'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/create_groups_cts.html#grid_peps"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.create_groups_cts.grid_peps" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>locs</strong><span class="classifier">np.array</span></dt><dd><p>A (N, num_disc, d)-dimensional array. Here, N is the
+number of samples from the posterior, d is the number
+of dimensions of the space, and each point corresponds
+to a signal in a particular posterior sample.</p>
+</dd>
+<dt><strong>grid_sizes</strong><span class="classifier">list or np.ndarray</span></dt><dd><p>List of grid-sizes to split up the locations.</p>
+</dd>
+<dt><strong>count_signals</strong><span class="classifier">bool</span></dt><dd><p>If True, the number of signals in each group is counted.</p>
+</dd>
+<dt><strong>extra_centers</strong><span class="classifier">np.ndarray</span></dt><dd><p>A (ncenters, d)-dimensional array. At each resolution,
+a candidate groups will be computed with centers at these
+locations.</p>
+</dd>
+<dt><strong>shape</strong><span class="classifier">string</span></dt><dd><p>One of <code class="docutils literal notranslate"><span class="pre">square</span></code> or <code class="docutils literal notranslate"><span class="pre">circle</span></code></p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>cand_groups</strong><span class="classifier">list</span></dt><dd><p>A list of CandidateGroup objects.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.create_groups_cts.grid_peps_to_cand_groups">
+<span class="sig-prename descclassname"><span class="pre">pyblip.create_groups_cts.</span></span><span class="sig-name descname"><span class="pre">grid_peps_to_cand_groups</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filtered_peps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_blip_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'square'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_pep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_pep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/create_groups_cts.html#grid_peps_to_cand_groups"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.create_groups_cts.grid_peps_to_cand_groups" title="Permalink to this definition"></a></dt>
+<dd><p>Turns the output of the <code class="docutils literal notranslate"><span class="pre">grid_peps</span></code> function into
+a list of list of CandidateGroups. Each sub-list corresponds
+to a list of completely disconnected CandidateGroups which
+can be fed to BLiP separately (this saves computation).</p>
+<dl class="simple">
+<dt>filtered_peps<span class="classifier">dict</span></dt><dd><p>An output of the <code class="docutils literal notranslate"><span class="pre">grid_peps</span></code> function.</p>
+</dd>
+<dt>time0<span class="classifier">float</span></dt><dd><p>The initial time the analysis started, useful for logging.</p>
+</dd>
+<dt>max_blip_size<span class="classifier">int</span></dt><dd><p>Maximum size of a problem that can be fed into BLiP.</p>
+</dd>
+<dt>verbose: bool</dt><dd><p>If True, will report progress over time. Default: False.</p>
+</dd>
+<dt>shape<span class="classifier">string</span></dt><dd><p>One of <code class="docutils literal notranslate"><span class="pre">square</span></code> or <code class="docutils literal notranslate"><span class="pre">circle</span></code></p>
+</dd>
+<dt>max_pep<span class="classifier">float</span></dt><dd><p>The maximum pep for candidate groups. Default: 1.</p>
+</dd>
+<dt>min_pep<span class="classifier">float</span></dt><dd><p>Once we achieve a pep of this level for candidate groups,
+we do not search to find peps any lower. Default: 0.001.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.create_groups_cts.normalize_locs">
+<span class="sig-prename descclassname"><span class="pre">pyblip.create_groups_cts.</span></span><span class="sig-name descname"><span class="pre">normalize_locs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">locs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/create_groups_cts.html#normalize_locs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.create_groups_cts.normalize_locs" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>locs</strong><span class="classifier">np.array</span></dt><dd><p>locs, but normalized such that all values lie in [0,1].
+NAs are converted to -1.</p>
+</dd>
+<dt><strong>shifts</strong><span class="classifier">np.array</span></dt><dd><p><code class="docutils literal notranslate"><span class="pre">d</span></code>-dimensional array corresponding to the shifts applied
+in the normalizatin.</p>
+</dd>
+<dt><strong>scales</strong><span class="classifier">np.array</span></dt><dd><p><code class="docutils literal notranslate"><span class="pre">d</span></code>-dimension array corresponding to the scales in the 
+normalization.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-pyblip.ecc">
+<span id="edge-clique-cover"></span><h3>Edge clique cover<a class="headerlink" href="#module-pyblip.ecc" title="Permalink to this headline"></a></h3>
+<p>Polynomial-time function to find a (heuristically) minimal edge clique cover</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.ecc.edge_clique_cover">
+<span class="sig-prename descclassname"><span class="pre">pyblip.ecc.</span></span><span class="sig-name descname"><span class="pre">edge_clique_cover</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">G</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/ecc.html#edge_clique_cover"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.ecc.edge_clique_cover" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>G</strong><span class="classifier">networkx Graph</span></dt><dd><p>Undirected graph. Should not have self-loops.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>cliques</strong><span class="classifier">list</span></dt><dd><p>List of cliques. Each clique is a list of ints where
+the integers correspond to the nodes of G.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-pyblip.weight_fns">
+<span id="weight-functions"></span><h3>Weight functions<a class="headerlink" href="#module-pyblip.weight_fns" title="Permalink to this headline"></a></h3>
+<p>A few default choices of weight function to define power.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.weight_fns.inverse_area_weight">
+<span class="sig-prename descclassname"><span class="pre">pyblip.weight_fns.</span></span><span class="sig-name descname"><span class="pre">inverse_area_weight</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cand_group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/weight_fns.html#inverse_area_weight"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.weight_fns.inverse_area_weight" title="Permalink to this definition"></a></dt>
+<dd><p>Weights candidate groups by the inverse of their area.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>cand_group</strong><span class="classifier">CandidateGroup</span></dt><dd><p>The candidate group</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>weight</strong><span class="classifier">float</span></dt><dd><p>The associated weight when calculating power.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.weight_fns.inverse_radius_weight">
+<span class="sig-prename descclassname"><span class="pre">pyblip.weight_fns.</span></span><span class="sig-name descname"><span class="pre">inverse_radius_weight</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cand_group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/weight_fns.html#inverse_radius_weight"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.weight_fns.inverse_radius_weight" title="Permalink to this definition"></a></dt>
+<dd><p>Weights candidate groups by the inverse of the radius.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>cand_group</strong><span class="classifier">CandidateGroup</span></dt><dd><p>The candidate group</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>weight</strong><span class="classifier">float</span></dt><dd><p>The associated weight when calculating power.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.weight_fns.inverse_size">
+<span class="sig-prename descclassname"><span class="pre">pyblip.weight_fns.</span></span><span class="sig-name descname"><span class="pre">inverse_size</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cand_group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/weight_fns.html#inverse_size"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.weight_fns.inverse_size" title="Permalink to this definition"></a></dt>
+<dd><p>Weights candidate groups by 1 / len(cand_group.group)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>cand_group</strong><span class="classifier">CandidateGroup</span></dt><dd><p>The candidate group</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>weight</strong><span class="classifier">float</span></dt><dd><p>The associated weight when calculating power.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.weight_fns.log_inverse_size">
+<span class="sig-prename descclassname"><span class="pre">pyblip.weight_fns.</span></span><span class="sig-name descname"><span class="pre">log_inverse_size</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cand_group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/weight_fns.html#log_inverse_size"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.weight_fns.log_inverse_size" title="Permalink to this definition"></a></dt>
+<dd><p>Weights candidate groups by 1 / (1 + log2(len(cand_group.group)))</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>cand_group</strong><span class="classifier">CandidateGroup</span></dt><dd><p>The candidate group</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>weight</strong><span class="classifier">float</span></dt><dd><p>The associated weight when calculating power.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="bayesian-samplers">
+<h2>Bayesian Samplers<a class="headerlink" href="#bayesian-samplers" title="Permalink to this headline"></a></h2>
+<p>BLiP can wrap on top of nearly any Bayesian model or algorithm. However,
+for convenience, <code class="docutils literal notranslate"><span class="pre">pyblip</span></code> includes a few custom MCMC samplers.</p>
+<div class="section" id="module-pyblip.linear.linear">
+<span id="linear-spike-and-slab"></span><h3>Linear Spike and Slab<a class="headerlink" href="#module-pyblip.linear.linear" title="Permalink to this headline"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyblip.linear.linear.LinearSpikeSlab">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyblip.linear.linear.</span></span><span class="sig-name descname"><span class="pre">LinearSpikeSlab</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p0_a0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p0_b0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update_p0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_p0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update_sigma2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma2_a0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma2_b0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tau2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tau2_a0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tau2_b0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update_tau2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/linear/linear.html#LinearSpikeSlab"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.linear.linear.LinearSpikeSlab" title="Permalink to this definition"></a></dt>
+<dd><p>Spike-and-slab model for linear regression.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>X</strong><span class="classifier">np.array</span></dt><dd><p><code class="docutils literal notranslate"><span class="pre">(n,p)</span></code>-shaped design matrix.</p>
+</dd>
+<dt><strong>y</strong><span class="classifier">np.array</span></dt><dd><p><code class="docutils literal notranslate"><span class="pre">n</span></code>-length array of responses.</p>
+</dd>
+<dt><strong>p0</strong><span class="classifier">float</span></dt><dd><p>Prior probability that any coefficient equals zero.</p>
+</dd>
+<dt><strong>update_p0</strong><span class="classifier">bool</span></dt><dd><p>If True, updates <code class="docutils literal notranslate"><span class="pre">p0</span></code> using a Beta hyperprior on <code class="docutils literal notranslate"><span class="pre">p0</span></code>.
+Else, the value of <code class="docutils literal notranslate"><span class="pre">p0</span></code> is fixed.</p>
+</dd>
+<dt><strong>p0_a0</strong><span class="classifier">float</span></dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">update_p0</span></code> is True, <code class="docutils literal notranslate"><span class="pre">p0</span></code> has a
+Beta(<code class="docutils literal notranslate"><span class="pre">p0_a0</span></code>, <code class="docutils literal notranslate"><span class="pre">p0_b0</span></code>, <code class="docutils literal notranslate"><span class="pre">min_p0</span></code>) hyperprior.</p>
+</dd>
+<dt><strong>p0_b0</strong><span class="classifier">float</span></dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">update_p0</span></code> is True, <code class="docutils literal notranslate"><span class="pre">p0</span></code> has a
+TruncBeta(<code class="docutils literal notranslate"><span class="pre">p0_a0</span></code>, <code class="docutils literal notranslate"><span class="pre">p0_b0</span></code>, <code class="docutils literal notranslate"><span class="pre">min_p0</span></code>) hyperprior.</p>
+</dd>
+<dt><strong>min_p0</strong><span class="classifier">float</span></dt><dd><p>Minimum value for <code class="docutils literal notranslate"><span class="pre">p0</span></code> as specified by the prior.</p>
+</dd>
+<dt><strong>sigma2</strong><span class="classifier">float</span></dt><dd><p>Variance of y given X.</p>
+</dd>
+<dt><strong>update_sigma2</strong><span class="classifier">bool</span></dt><dd><p>If True, imposes an InverseGamma hyperprior on <code class="docutils literal notranslate"><span class="pre">sigma2</span></code>.
+Else, the value of <code class="docutils literal notranslate"><span class="pre">sigma2</span></code> is fixed.</p>
+</dd>
+<dt><strong>sigma2_a0</strong><span class="classifier">float</span></dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">update_sigma2</span></code> is True, <code class="docutils literal notranslate"><span class="pre">sigma2</span></code> has an
+InvGamma(<code class="docutils literal notranslate"><span class="pre">sigma2_a0</span></code>, <code class="docutils literal notranslate"><span class="pre">sigma2_b0</span></code>) hyperprior.</p>
+</dd>
+<dt><strong>sigma2_b0</strong><span class="classifier">float</span></dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">update_sigma2</span></code> is True, <code class="docutils literal notranslate"><span class="pre">sigma2</span></code> has an
+InvGamma(<code class="docutils literal notranslate"><span class="pre">sigma2_a0</span></code>, <code class="docutils literal notranslate"><span class="pre">sigma2_b0</span></code>) hyperprior.</p>
+</dd>
+<dt><strong>tau2</strong><span class="classifier">float</span></dt><dd><p>Prior variance on nonzero coefficients.</p>
+</dd>
+<dt><strong>update_tau2</strong><span class="classifier">bool</span></dt><dd><p>If True, imposes an InverseGamma hyperprior on <code class="docutils literal notranslate"><span class="pre">tau2</span></code>.
+Else, the value of <code class="docutils literal notranslate"><span class="pre">tau2</span></code> is fixed.</p>
+</dd>
+<dt><strong>tau2_a0</strong><span class="classifier">float</span></dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">update_sigma2</span></code> is True, <code class="docutils literal notranslate"><span class="pre">tau2</span></code> has an
+InvGamma(<code class="docutils literal notranslate"><span class="pre">tau2_a0</span></code>, <code class="docutils literal notranslate"><span class="pre">tau2_b0</span></code>) hyperprior.</p>
+</dd>
+<dt><strong>tau2_b0</strong><span class="classifier">float</span></dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">update_sigma2</span></code> is True, <code class="docutils literal notranslate"><span class="pre">tau2</span></code> has an
+InvGamma(<code class="docutils literal notranslate"><span class="pre">tau2_a0</span></code>, <code class="docutils literal notranslate"><span class="pre">tau2_b0</span></code>) hyperprior.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Methods</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 19%" />
+<col style="width: 81%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>sample:</strong></p></td>
+<td><p>Samples from the posterior using Gibbs sampling.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="pyblip.linear.linear.LinearSpikeSlab.sample">
+<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chains</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_processes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_signals_per_block</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/linear/linear.html#LinearSpikeSlab.sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.linear.linear.LinearSpikeSlab.sample" title="Permalink to this definition"></a></dt>
+<dd><dl class="simple">
+<dt>N<span class="classifier">int</span></dt><dd><p>Number of samples per chain</p>
+</dd>
+<dt>burn<span class="classifier">int</span></dt><dd><p>Number of samples to burn per chain</p>
+</dd>
+<dt>chains<span class="classifier">int</span></dt><dd><p>Number of chains to run</p>
+</dd>
+<dt>num_processes<span class="classifier">int</span></dt><dd><p>How many processes to use</p>
+</dd>
+<dt>bsize<span class="classifier">int</span></dt><dd><p>Maximum block size within gibbs sampling. Default: 1.</p>
+</dd>
+<dt>max_signals_per_block<span class="classifier">int</span></dt><dd><p>Maximum number of signals allowed per block. Default: None
+(this places no restrictions on the number of signals per block).
+The default is highly recommended.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-pyblip.probit.probit">
+<span id="probit-spike-and-slab"></span><h3>Probit Spike and Slab<a class="headerlink" href="#module-pyblip.probit.probit" title="Permalink to this headline"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyblip.probit.probit.ProbitSpikeSlab">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyblip.probit.probit.</span></span><span class="sig-name descname"><span class="pre">ProbitSpikeSlab</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/probit/probit.html#ProbitSpikeSlab"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.probit.probit.ProbitSpikeSlab" title="Permalink to this definition"></a></dt>
+<dd><p>Spike-and-slab model for probit regression. The arguments 
+are identical to those for <code class="docutils literal notranslate"><span class="pre">LinearSpikeSlab</span></code>, except
+<code class="docutils literal notranslate"><span class="pre">y</span></code> should be binary.</p>
+<p class="rubric">Methods</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 19%" />
+<col style="width: 81%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>sample:</strong></p></td>
+<td><p>Samples from the posterior using Gibbs sampling.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="pyblip.probit.probit.ProbitSpikeSlab.sample">
+<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chains</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_processes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_signals_per_block</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/probit/probit.html#ProbitSpikeSlab.sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.probit.probit.ProbitSpikeSlab.sample" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>N</strong><span class="classifier">int</span></dt><dd><p>Number of samples per chain</p>
+</dd>
+<dt><strong>burn</strong><span class="classifier">int</span></dt><dd><p>Number of samples to burn per chain</p>
+</dd>
+<dt><strong>chains</strong><span class="classifier">int</span></dt><dd><p>Number of chains to run</p>
+</dd>
+<dt><strong>num_processes</strong><span class="classifier">int</span></dt><dd><p>How many processes to use</p>
+</dd>
+<dt><strong>bsize</strong><span class="classifier">int</span></dt><dd><p>Maximum block size within gibbs sampling. Default: 1.</p>
+</dd>
+<dt><strong>max_signals_per_block</strong><span class="classifier">int</span></dt><dd><p>Maximum number of signals allowed per block. Default: None
+(this places no restrictions on the number of signals per block).
+The default is highly recommended.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-pyblip.nprior.nprior">
+<span id="neuronized-priors"></span><h3>Neuronized Priors<a class="headerlink" href="#module-pyblip.nprior.nprior" title="Permalink to this headline"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyblip.nprior.nprior.NPrior">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyblip.nprior.nprior.</span></span><span class="sig-name descname"><span class="pre">NPrior</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tauw2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update_p0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_p0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_prior_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_a0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_b0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha0_a0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha0_b0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/nprior/nprior.html#NPrior"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.nprior.nprior.NPrior" title="Permalink to this definition"></a></dt>
+<dd><p>Implements Neuronized Prior sampler for spike-and-slab
+regression.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>X</strong><span class="classifier">np.array</span></dt><dd><p><code class="docutils literal notranslate"><span class="pre">(n,p)</span></code>-shaped design matrix</p>
+</dd>
+<dt><strong>y</strong><span class="classifier">np.array</span></dt><dd><p><code class="docutils literal notranslate"><span class="pre">(n,)</span></code>-shaped vector of response data</p>
+</dd>
+<dt><strong>p0</strong><span class="classifier">float</span></dt><dd><p>The initial parameter for the proportion of nulls.
+Defaults to 1 - min(0.01, 1/p).</p>
+</dd>
+<dt><strong>update_p0</strong><span class="classifier">bool</span></dt><dd><p>If true, will update p0 throughout MCMC sampling using
+a uniform hyperprior.</p>
+</dd>
+<dt><strong>min_p0</strong><span class="classifier">float</span></dt><dd><p>If updating p0 throughout uniform sampling, will force 
+p0 to be above <code class="docutils literal notranslate"><span class="pre">min_p0</span></code>. This can dramatically speed
+up computation in very high-dimensional settings.</p>
+</dd>
+<dt><strong>sigma_prior_type</strong><span class="classifier">integer</span></dt><dd><p>If 0, assumes sigma2 is conditionally independent of the
+coefficients given the residuals.</p>
+</dd>
+<dt><strong>tauw2</strong><span class="classifier">float</span></dt><dd><p>prior variance of the weight parameter</p>
+</dd>
+<dt><strong>a0</strong><span class="classifier">float</span></dt><dd><p>sigma2 has an inverse-gamma prior with parameters a0, b0</p>
+</dd>
+<dt><strong>b0</strong><span class="classifier">float</span></dt><dd><p>sigma2 has an inverse-gamma prior with parameters a0, b0</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>See <a class="reference external" href="https://arxiv.org/pdf/1810.00141.pdf">https://arxiv.org/pdf/1810.00141.pdf</a>.</p>
+<p class="rubric">Methods</p>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pyblip.nprior.nprior.NPrior.sample" title="pyblip.nprior.nprior.NPrior.sample"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sample</span></code></a>([N, burn, chains, num_processes, ...])</p></td>
+<td><p><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p></p></dd>
+</dl>
+</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="pyblip.nprior.nprior.NPrior.sample">
+<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chains</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_processes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_sample_W</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_alpha_update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/nprior/nprior.html#NPrior.sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.nprior.nprior.NPrior.sample" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>N</strong><span class="classifier">int</span></dt><dd><p>The number of samples to draw from the chain</p>
+</dd>
+<dt><strong>burn</strong><span class="classifier">int</span></dt><dd><p>The burn-in period for each chain.</p>
+</dd>
+<dt><strong>chains</strong><span class="classifier">int</span></dt><dd><p>The number of independent MCMC chains to run.</p>
+</dd>
+<dt><strong>num_processes</strong><span class="classifier">int</span></dt><dd><p>The number of processes to run the chains.</p>
+</dd>
+<dt><strong>joint_sample_W</strong><span class="classifier">bool</span></dt><dd><p>If true, will jointly sample the “W” variables
+at each iteration before individually resampling
+alpha and W. This can improve sample efficiency
+but is a computational bottleneck in high dimensions.</p>
+</dd>
+<dt><strong>group_alpha_update</strong><span class="classifier">bool</span></dt><dd><p>If true, does a joint group-move update to estimate 
+the sparsity. Else, uses the standard conjugacy
+rules for a Uniform prior on the sparsity.</p>
+</dd>
+<dt><strong>log_interval</strong><span class="classifier">int</span></dt><dd><p>Will log progress after <code class="docutils literal notranslate"><span class="pre">log_interval</span></code> iterations. 
+Defaults to None (no logging).</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-pyblip.changepoint">
+<span id="changepoint-detection"></span><h3>Changepoint Detection<a class="headerlink" href="#module-pyblip.changepoint" title="Permalink to this headline"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="pyblip.changepoint.detect_changepoints">
+<span class="sig-prename descclassname"><span class="pre">pyblip.changepoint.</span></span><span class="sig-name descname"><span class="pre">detect_changepoints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lm_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blip_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyblip/changepoint.html#detect_changepoints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyblip.changepoint.detect_changepoints" title="Permalink to this definition"></a></dt>
+<dd><p>Changepoint detection with BLiP using the LinearSpikeSlab sampler.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>Y</strong><span class="classifier">np.array</span></dt><dd><p>Array of observations in order they were observed.</p>
+</dd>
+<dt><strong>q</strong><span class="classifier">float</span></dt><dd><p>Level at which to control the FDR.</p>
+</dd>
+<dt><strong>**kwargs</strong><span class="classifier">dict</span></dt><dd><p>Optional inputs to linear spike slab model.</p>
+</dd>
+<dt><strong>**sample_kwargs</strong><span class="classifier">dict</span></dt><dd><p>Optional inputs to <code class="docutils literal notranslate"><span class="pre">sample</span></code> method of 
+linear spike slab model.</p>
+</dd>
+<dt><strong>**blip_kwargs</strong><span class="classifier">dict</span></dt><dd><p>Optional inputs to BLiP.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="usage.html" class="btn btn-neutral float-left" title="Tutorials" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Asher Spector.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pyblip.create_groups_cts &mdash; pyblip 0.1.4 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> pyblip
+          </a>
+              <div class="version">
+                0.1.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../apiref.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">pyblip</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>pyblip.create_groups_cts</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for pyblip.create_groups_cts</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">Creates candidate groups when signals could appear anywhere in a</span>
+<span class="sd">continuous d-dimensional space. </span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="kn">from</span> <span class="nn">.utilities</span> <span class="kn">import</span> <span class="n">elapsed</span>
+<span class="kn">from</span> <span class="nn">.create_groups</span> <span class="kn">import</span> <span class="n">CandidateGroup</span>
+<span class="kn">from</span> <span class="nn">.ecc</span> <span class="kn">import</span> <span class="n">edge_clique_cover</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+
+<span class="n">TOL</span> <span class="o">=</span> <span class="mf">1e-10</span>
+
+<div class="viewcode-block" id="normalize_locs"><a class="viewcode-back" href="../../apiref.html#pyblip.create_groups_cts.normalize_locs">[docs]</a><span class="k">def</span> <span class="nf">normalize_locs</span><span class="p">(</span><span class="n">locs</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">	Paramters</span>
+<span class="sd">	---------</span>
+<span class="sd">	locs : np.array</span>
+<span class="sd">		A (N, num_disc, d)-dimensional array. Here, N is the</span>
+<span class="sd">		number of samples from the posterior, d is the number</span>
+<span class="sd">		of dimensions of the space, and each point corresponds</span>
+<span class="sd">		to a signal in a particular posterior sample.</span>
+
+<span class="sd">	Returns</span>
+<span class="sd">	-------</span>
+<span class="sd">	locs : np.array</span>
+<span class="sd">		locs, but normalized such that all values lie in [0,1].</span>
+<span class="sd">		NAs are converted to -1.</span>
+<span class="sd">	shifts : np.array</span>
+<span class="sd">		``d``-dimensional array corresponding to the shifts applied</span>
+<span class="sd">		in the normalizatin. </span>
+<span class="sd">	scales : np.array</span>
+<span class="sd">		``d``-dimension array corresponding to the scales in the </span>
+<span class="sd">		normalization.</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="n">min_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmin</span><span class="p">(</span><span class="n">locs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+	<span class="n">max_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">locs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+	<span class="n">shifts</span> <span class="o">=</span> <span class="n">min_val</span>
+	<span class="n">scales</span> <span class="o">=</span> <span class="n">max_val</span> <span class="o">-</span> <span class="n">min_val</span>
+	<span class="n">norm_locs</span> <span class="o">=</span> <span class="p">(</span><span class="n">locs</span> <span class="o">-</span> <span class="n">shifts</span><span class="p">)</span> <span class="o">/</span> <span class="n">scales</span>
+	<span class="k">return</span> <span class="n">norm_locs</span><span class="p">,</span> <span class="n">shifts</span><span class="p">,</span> <span class="n">scales</span></div>
+
+<span class="k">def</span> <span class="nf">_additional_circle_centers</span><span class="p">(</span>
+	<span class="n">samples</span><span class="p">,</span> <span class="n">centers</span><span class="p">,</span> <span class="n">center_list</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">gsize</span>
+<span class="p">):</span>
+	<span class="n">N</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span>
+	<span class="n">radius2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">radius</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+	<span class="c1"># Check upper/lower/left/right</span>
+	<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+		<span class="k">for</span> <span class="n">offset</span> <span class="ow">in</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span>
+			<span class="n">centers_new</span> <span class="o">=</span> <span class="n">centers</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+			<span class="n">centers_new</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">offset</span> <span class="o">/</span> <span class="n">gsize</span>
+			<span class="c1"># Check if points are in the offset centers</span>
+			<span class="c1">#print(samples.shape, centers.shape, centers_new.shape)</span>
+			<span class="n">included</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">samples</span> <span class="o">-</span> <span class="n">centers_new</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">radius2</span>
+			<span class="n">included</span> <span class="o">=</span> <span class="n">included</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">centers_new</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">TOL</span><span class="p">)</span>
+			<span class="n">included</span> <span class="o">=</span> <span class="n">included</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">centers_new</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="o">-</span><span class="n">TOL</span><span class="p">)</span>
+			<span class="n">center_list</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span>
+				<span class="nb">tuple</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">c</span><span class="p">))</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">centers_new</span><span class="p">[</span><span class="n">included</span><span class="p">]</span>
+			<span class="p">])</span>
+
+	<span class="k">return</span> <span class="n">center_list</span>
+
+
+<span class="k">def</span> <span class="nf">_find_centers</span><span class="p">(</span>
+	<span class="n">samples</span><span class="p">,</span> <span class="n">gsize</span><span class="p">,</span> <span class="n">shape</span>
+<span class="p">):</span>
+	<span class="c1"># Find central boxes containing samples</span>
+	<span class="n">N</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span>
+	<span class="c1"># lower-left corner (comments in 2d for intuition)</span>
+	<span class="n">corners</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span>
+		<span class="n">samples</span> <span class="o">*</span> <span class="n">gsize</span>
+	<span class="p">)</span>
+	<span class="n">corners</span> <span class="o">=</span> <span class="n">corners</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="n">gsize</span>
+
+	<span class="c1"># Adjust to make centers and check for unexpected shapes</span>
+	<span class="n">centers</span> <span class="o">=</span> <span class="n">corners</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">gsize</span><span class="p">)</span>
+	<span class="n">center_list</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">c</span><span class="p">))</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">centers</span><span class="p">]</span>
+	<span class="k">if</span> <span class="n">shape</span> <span class="o">==</span> <span class="s1">&#39;circle&#39;</span><span class="p">:</span>
+		<span class="c1"># Radius of Eucliean balls</span>
+		<span class="k">if</span> <span class="n">d</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+			<span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+				<span class="s2">&quot;Shape=circle only implemented for 2-d data, but detected </span><span class="si">{d}</span><span class="s2"> dimensions&quot;</span>
+			<span class="p">)</span>
+		<span class="n">radius</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">gsize</span><span class="p">)</span>
+	<span class="k">elif</span> <span class="n">shape</span> <span class="o">==</span> <span class="s1">&#39;square&#39;</span><span class="p">:</span>
+		<span class="n">radius</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">gsize</span><span class="p">)</span>
+	<span class="k">else</span><span class="p">:</span>
+		<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unrecognized shape=</span><span class="si">{</span><span class="n">shape</span><span class="si">}</span><span class="s2">, must be one of &#39;square&#39;, &#39;circle&#39;&quot;</span><span class="p">)</span>
+
+	<span class="c1"># Add extra centers for circles only</span>
+	<span class="k">if</span> <span class="n">shape</span> <span class="o">==</span> <span class="s1">&#39;circle&#39;</span> <span class="ow">and</span> <span class="n">N</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+		<span class="n">center_list</span> <span class="o">=</span> <span class="n">_additional_circle_centers</span><span class="p">(</span>
+			<span class="n">samples</span><span class="p">,</span> <span class="n">centers</span><span class="p">,</span> <span class="n">center_list</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">gsize</span> 
+		<span class="p">)</span>
+
+	<span class="k">return</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">around</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span> <span class="o">+</span> <span class="p">(</span><span class="n">radius</span><span class="p">,)</span> <span class="k">for</span> <span class="n">center</span> <span class="ow">in</span> <span class="n">center_list</span><span class="p">]</span>
+
+<div class="viewcode-block" id="grid_peps"><a class="viewcode-back" href="../../apiref.html#pyblip.create_groups_cts.grid_peps">[docs]</a><span class="k">def</span> <span class="nf">grid_peps</span><span class="p">(</span>
+	<span class="n">locs</span><span class="p">,</span>
+	<span class="n">grid_sizes</span><span class="p">,</span>
+	<span class="n">count_signals</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+	<span class="n">extra_centers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+	<span class="n">max_pep</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
+	<span class="n">log_interval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+	<span class="n">time0</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+	<span class="n">shape</span><span class="o">=</span><span class="s1">&#39;square&#39;</span>
+<span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">	Parameters</span>
+<span class="sd">	----------</span>
+<span class="sd">	locs : np.array</span>
+<span class="sd">		A (N, num_disc, d)-dimensional array. Here, N is the</span>
+<span class="sd">		number of samples from the posterior, d is the number</span>
+<span class="sd">		of dimensions of the space, and each point corresponds</span>
+<span class="sd">		to a signal in a particular posterior sample. </span>
+<span class="sd">	grid_sizes : list or np.ndarray</span>
+<span class="sd">		List of grid-sizes to split up the locations.</span>
+<span class="sd">	count_signals : bool</span>
+<span class="sd">		If True, the number of signals in each group is counted.</span>
+<span class="sd">	extra_centers : np.ndarray</span>
+<span class="sd">		A (ncenters, d)-dimensional array. At each resolution,</span>
+<span class="sd">		a candidate groups will be computed with centers at these</span>
+<span class="sd">		locations.</span>
+<span class="sd">	shape : string</span>
+<span class="sd">		One of ``square`` or ``circle``</span>
+
+<span class="sd">	Returns</span>
+<span class="sd">	-------</span>
+<span class="sd">	cand_groups : list</span>
+<span class="sd">		A list of CandidateGroup objects.</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="k">if</span> <span class="n">time0</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+		<span class="n">time0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+	<span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmin</span><span class="p">(</span><span class="n">locs</span><span class="p">)</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">TOL</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">locs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">TOL</span><span class="p">:</span>
+		<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+			<span class="sa">f</span><span class="s2">&quot;locs are not normalized: apply create_groups_cts.normalize_locs first.&quot;</span>
+		<span class="p">)</span>
+
+	<span class="c1"># Create PIPs</span>
+	<span class="n">pips</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+	<span class="n">N</span> <span class="o">=</span> <span class="n">locs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+	<span class="n">d</span> <span class="o">=</span> <span class="n">locs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+	<span class="k">if</span> <span class="n">extra_centers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+		<span class="n">n_extra_cent</span> <span class="o">=</span> <span class="n">extra_centers</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+	<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+		<span class="c1"># Ignore dummy discoveries</span>
+		<span class="n">active</span> <span class="o">=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">locs</span><span class="p">[</span><span class="n">j</span><span class="p">]),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">samples</span> <span class="o">=</span> <span class="n">locs</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">active</span><span class="p">]</span>
+		<span class="c1"># Loop through grid sizes and find centers</span>
+		<span class="n">all_centers</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="k">for</span> <span class="n">gsize</span> <span class="ow">in</span> <span class="n">grid_sizes</span><span class="p">:</span>
+			<span class="n">all_centers</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_find_centers</span><span class="p">(</span>
+				<span class="n">samples</span><span class="o">=</span><span class="n">samples</span><span class="p">,</span> <span class="n">gsize</span><span class="o">=</span><span class="n">gsize</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">shape</span>
+			<span class="p">))</span>
+
+		<span class="c1"># Repeat for manually added centers</span>
+		<span class="n">all_extra_centers</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="k">if</span> <span class="n">extra_centers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">n_extra_cent</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+			<span class="n">dists</span> <span class="o">=</span> <span class="n">extra_centers</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n_extra_cent</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">-</span> <span class="n">samples</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+			<span class="k">if</span> <span class="n">shape</span> <span class="o">==</span> <span class="s1">&#39;square&#39;</span><span class="p">:</span>
+				<span class="n">dists</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">dists</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+			<span class="k">else</span><span class="p">:</span>
+				<span class="n">dists</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">dists</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+			<span class="n">min_dists</span> <span class="o">=</span> <span class="n">dists</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+			<span class="k">for</span> <span class="n">gsize</span> <span class="ow">in</span> <span class="n">grid_sizes</span><span class="p">:</span>
+				<span class="n">radius</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">gsize</span><span class="p">)</span>
+				<span class="k">if</span> <span class="n">shape</span> <span class="o">==</span> <span class="s1">&#39;circle&#39;</span><span class="p">:</span>
+					<span class="n">radius</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="o">*</span> <span class="n">radius</span>
+				<span class="k">for</span> <span class="n">nc</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">min_dists</span> <span class="o">&lt;=</span> <span class="n">radius</span><span class="p">)[</span><span class="mi">0</span><span class="p">]:</span>
+					<span class="n">key</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">extra_centers</span><span class="p">[</span><span class="n">nc</span><span class="p">])</span> <span class="o">+</span> <span class="p">(</span><span class="n">radius</span><span class="p">,)</span>
+					<span class="c1"># Just add this once if we are looking for the presence of a signal</span>
+					<span class="k">if</span> <span class="ow">not</span> <span class="n">count_signals</span><span class="p">:</span>
+						<span class="n">all_extra_centers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+					<span class="c1"># else count num. signals in this region</span>
+					<span class="k">else</span><span class="p">:</span>
+						<span class="n">nsignals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dists</span><span class="p">[</span><span class="n">nc</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">radius</span><span class="p">)</span>
+						<span class="n">all_extra_centers</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">key</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsignals</span><span class="p">)])</span>
+
+		<span class="c1"># Update PIPs</span>
+		<span class="n">final_centers</span> <span class="o">=</span> <span class="n">all_centers</span> <span class="o">+</span> <span class="n">all_extra_centers</span>
+		<span class="k">if</span> <span class="ow">not</span> <span class="n">count_signals</span><span class="p">:</span>
+			<span class="n">final_centers</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">final_centers</span><span class="p">)</span>
+			<span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">final_centers</span><span class="p">:</span>
+				<span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">pips</span><span class="p">:</span>
+					<span class="n">pips</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">N</span>
+				<span class="k">else</span><span class="p">:</span>
+					<span class="n">pips</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">N</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">counter</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">final_centers</span><span class="p">)</span>
+			<span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">counter</span><span class="p">:</span>
+				<span class="n">count</span> <span class="o">=</span> <span class="n">counter</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+				<span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">pips</span><span class="p">:</span>
+					<span class="n">pips</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">count</span><span class="p">:</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">N</span><span class="p">,</span> <span class="s1">&#39;pip&#39;</span><span class="p">:</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">N</span><span class="p">}</span>
+				<span class="k">else</span><span class="p">:</span>
+					<span class="k">if</span> <span class="n">count</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">pips</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+						<span class="n">pips</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">count</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">N</span>
+					<span class="k">else</span><span class="p">:</span>
+						<span class="n">pips</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">count</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">N</span>
+					<span class="n">pips</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s1">&#39;pip&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">N</span>
+
+		<span class="k">if</span> <span class="n">log_interval</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+			<span class="k">if</span> <span class="n">j</span> <span class="o">%</span> <span class="n">log_interval</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+				<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Computing PEPs: finished with </span><span class="si">{</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s2"> posterior samples at </span><span class="si">{</span><span class="n">elapsed</span><span class="p">(</span><span class="n">time0</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+	<span class="c1"># Filter</span>
+	<span class="n">filtered_peps</span> <span class="o">=</span> <span class="p">{}</span>
+	<span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">pips</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+		<span class="k">if</span> <span class="ow">not</span> <span class="n">count_signals</span><span class="p">:</span>
+			<span class="n">pep</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">pips</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+			<span class="k">if</span> <span class="n">pep</span> <span class="o">&lt;=</span> <span class="n">max_pep</span><span class="p">:</span>
+				<span class="n">filtered_peps</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">pep</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">pep</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">pips</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s1">&#39;pip&#39;</span><span class="p">]</span>
+			<span class="k">if</span> <span class="n">pep</span> <span class="o">&lt;=</span> <span class="n">max_pep</span><span class="p">:</span>
+				<span class="n">filtered_peps</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">pips</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+	<span class="k">return</span> <span class="n">filtered_peps</span></div>
+
+<span class="c1"># def _postprocess_peps_count_signals(</span>
+<span class="c1"># 	filtered_peps,</span>
+<span class="c1"># 	max_pep=0.5,</span>
+<span class="c1"># 	cutoff=0.95,</span>
+<span class="c1"># ):</span>
+<span class="c1"># 	&quot;&quot;&quot;</span>
+<span class="c1"># 	Given the output of grid_peps with count_signals=True,</span>
+<span class="c1"># 	postprocesses the result. This is a helper function for</span>
+<span class="c1"># 	grid_peps_to_cand_groups.</span>
+<span class="c1"># 	&quot;&quot;&quot;</span>
+<span class="c1"># 	output = dict()</span>
+<span class="c1"># 	for key in filtered_peps.keys():</span>
+<span class="c1"># 		nsignals = [x for x in filtered_peps[key].keys() if x != &#39;pip&#39;]</span>
+<span class="c1"># 		props = [filtered_peps[key][n] for n in nsignals]</span>
+<span class="c1"># 		inds = np.argsort(props)</span>
+
+
+
+
+<div class="viewcode-block" id="grid_peps_to_cand_groups"><a class="viewcode-back" href="../../apiref.html#pyblip.create_groups_cts.grid_peps_to_cand_groups">[docs]</a><span class="k">def</span> <span class="nf">grid_peps_to_cand_groups</span><span class="p">(</span>
+	<span class="n">filtered_peps</span><span class="p">,</span> 
+	<span class="n">time0</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+	<span class="n">max_blip_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+	<span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+	<span class="n">shape</span><span class="o">=</span><span class="s1">&#39;square&#39;</span><span class="p">,</span>
+	<span class="n">max_pep</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+	<span class="n">min_pep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span>
+<span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">	Turns the output of the ``grid_peps`` function into</span>
+<span class="sd">	a list of list of CandidateGroups. Each sub-list corresponds</span>
+<span class="sd">	to a list of completely disconnected CandidateGroups which</span>
+<span class="sd">	can be fed to BLiP separately (this saves computation).</span>
+
+<span class="sd">	filtered_peps : dict</span>
+<span class="sd">		An output of the ``grid_peps`` function.</span>
+<span class="sd">	time0 : float</span>
+<span class="sd">		The initial time the analysis started, useful for logging.</span>
+<span class="sd">	max_blip_size : int</span>
+<span class="sd">		Maximum size of a problem that can be fed into BLiP.</span>
+<span class="sd">	verbose: bool</span>
+<span class="sd">		If True, will report progress over time. Default: False.</span>
+<span class="sd">	shape : string</span>
+<span class="sd">		One of ``square`` or ``circle``</span>
+<span class="sd">	max_pep : float</span>
+<span class="sd">		The maximum pep for candidate groups. Default: 1.</span>
+<span class="sd">	min_pep : float</span>
+<span class="sd">		Once we achieve a pep of this level for candidate groups,</span>
+<span class="sd">		we do not search to find peps any lower. Default: 0.001.</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="k">if</span> <span class="n">time0</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+		<span class="n">time0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+	<span class="c1"># Step 0: determine whether filtered_peps counts the number of signals or not</span>
+	<span class="n">ngroups</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">filtered_peps</span><span class="p">)</span>
+	<span class="k">if</span> <span class="n">ngroups</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+		<span class="k">return</span> <span class="p">[],</span> <span class="p">[]</span>
+	<span class="n">keys</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">filtered_peps</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+	<span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">filtered_peps</span><span class="p">[</span><span class="n">keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="nb">dict</span><span class="p">):</span>
+		<span class="n">count_signals</span> <span class="o">=</span> <span class="kc">True</span>
+		<span class="n">peps_arr</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">filtered_peps</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;pip&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">])</span>
+	<span class="k">else</span><span class="p">:</span>
+		<span class="n">count_signals</span> <span class="o">=</span> <span class="kc">False</span>
+		<span class="n">peps_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">filtered_peps</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">])</span>
+
+
+	<span class="c1"># Step 1: compute adjacency matrix</span>
+	<span class="k">if</span> <span class="n">ngroups</span> <span class="o">&gt;</span> <span class="mi">50000</span><span class="p">:</span>
+		<span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Computing adjacency matrix may be too inefficient for </span><span class="si">{</span><span class="n">ngroups</span><span class="si">}</span><span class="s2"> candidate groups.&quot;</span><span class="p">)</span>
+	<span class="n">d</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">keys</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span> <span class="c1"># dimensionality of problem</span>
+
+	<span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+		<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Constructing constraint matrix with ngroups=</span><span class="si">{</span><span class="n">ngroups</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">elapsed</span><span class="p">(</span><span class="n">time0</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+	<span class="n">constraints</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">ngroups</span><span class="p">,</span> <span class="n">ngroups</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+	<span class="n">centers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">d</span><span class="p">,</span> <span class="n">ngroups</span><span class="p">))</span>
+	<span class="n">centers</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+	<span class="n">radii</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">k</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">])</span>
+	<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+		<span class="c1"># Extract centers of groups</span>
+		<span class="n">centers</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">k</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">])</span>
+		<span class="k">if</span> <span class="n">centers</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">centers</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+			<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;centers max = </span><span class="si">{</span><span class="n">centers</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">}</span><span class="s2">, centers min = </span><span class="si">{</span><span class="n">centers</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+			<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;centers must be between 0 and 1 but this is not true&quot;</span><span class="p">)</span>
+	<span class="c1"># Find overlaps and add to constraints</span>
+	<span class="n">radii</span> <span class="o">=</span> <span class="n">radii</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="n">centers</span> <span class="o">=</span> <span class="n">centers</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="n">deltas</span> <span class="o">=</span> <span class="n">radii</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">radii</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+	<span class="k">if</span> <span class="n">shape</span> <span class="o">==</span> <span class="s1">&#39;square&#39;</span><span class="p">:</span>
+		<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+			<span class="n">constraints</span> <span class="o">=</span> <span class="n">constraints</span> <span class="o">&amp;</span> <span class="p">(</span>
+				<span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">centers</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">centers</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">deltas</span>
+			<span class="p">)</span>
+	<span class="k">elif</span> <span class="n">shape</span> <span class="o">==</span> <span class="s1">&#39;circle&#39;</span><span class="p">:</span>
+		<span class="n">dists</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span>
+			<span class="n">centers</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">ngroups</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">centers</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">ngroups</span><span class="p">),</span> <span class="mi">2</span>
+		<span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+		<span class="n">constraints</span> <span class="o">=</span> <span class="n">dists</span> <span class="o">&lt;</span> <span class="n">deltas</span>
+	<span class="k">else</span><span class="p">:</span>
+		<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unrecognized shape=</span><span class="si">{</span><span class="n">shape</span><span class="si">}</span><span class="s2">, must be one of &#39;square&#39;, &#39;circle&#39;&quot;</span><span class="p">)</span>
+
+
+	<span class="c1"># Step 2: Split problem into connected components</span>
+	<span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+		<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Isolating connected components at </span><span class="si">{</span><span class="n">elapsed</span><span class="p">(</span><span class="n">time0</span><span class="p">)</span><span class="si">}</span><span class="s2">. Graph has </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">constraints</span><span class="p">)</span><span class="si">}</span><span class="s2"> edges.&quot;</span><span class="p">)</span>
+	<span class="n">G</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">(</span><span class="n">constraints</span><span class="p">)</span>
+	<span class="n">components</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">nx</span><span class="o">.</span><span class="n">algorithms</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">connected_components</span><span class="p">(</span><span class="n">G</span><span class="p">))</span>
+	<span class="n">merged_components</span> <span class="o">=</span> <span class="p">[[]]</span>
+	<span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="p">:</span>
+		<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">merged_components</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">max_blip_size</span><span class="p">:</span>
+			<span class="n">merged_components</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+		<span class="n">merged_components</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
+	<span class="k">del</span> <span class="n">G</span> <span class="c1"># save memory</span>
+		
+	<span class="c1"># Step 3: construct cand_groups for BLiP</span>
+	<span class="n">all_cand_groups</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="k">for</span> <span class="n">compnum</span><span class="p">,</span> <span class="n">component</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">merged_components</span><span class="p">):</span>
+		<span class="n">component_cand_groups</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="n">component_groups</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">component</span><span class="p">]</span>
+		<span class="n">subG</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">(</span><span class="n">constraints</span><span class="p">[</span><span class="n">component</span><span class="p">,</span> <span class="p">:][:,</span> <span class="n">component</span><span class="p">])</span>
+		<span class="c1"># Construct groups for BLiP using as few locations as possible.</span>
+		<span class="c1"># This is related to the problem of listing the maximal cliques of</span>
+		<span class="c1"># subG. </span>
+		<span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+			<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Finding list of cliques for component </span><span class="si">{</span><span class="n">compnum</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">merged_components</span><span class="p">)</span><span class="si">}</span><span class="s2"> with dim </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">component</span><span class="p">)</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">elapsed</span><span class="p">(</span><span class="n">time0</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+		<span class="c1">#cliques = nx.algorithms.clique.find_cliques(subG)</span>
+		<span class="n">cliques</span> <span class="o">=</span> <span class="n">edge_clique_cover</span><span class="p">(</span><span class="n">subG</span><span class="p">)</span><span class="c1">#</span>
+		<span class="k">for</span> <span class="n">cliquenum</span><span class="p">,</span> <span class="n">clique</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cliques</span><span class="p">):</span>
+			<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">clique</span><span class="p">:</span>
+				<span class="n">component_groups</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cliquenum</span><span class="p">)</span>
+		<span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+			<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Finished finding cliques, constructing cand_groups at </span><span class="si">{</span><span class="n">elapsed</span><span class="p">(</span><span class="n">time0</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+		<span class="k">for</span> <span class="n">ii</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">component</span><span class="p">):</span>
+			<span class="n">group</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">component_groups</span><span class="p">[</span><span class="n">ii</span><span class="p">])</span>
+			<span class="n">data_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">radius</span><span class="o">=</span><span class="n">radii</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+			<span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+				<span class="n">data_dict</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;dim</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">centers</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
+			<span class="n">data_dict</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">centers</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+			<span class="c1"># Add many candidate groups with varying confidence regions</span>
+			<span class="c1"># for the number of signals</span>
+			<span class="k">if</span> <span class="n">count_signals</span><span class="p">:</span>
+				<span class="n">key</span> <span class="o">=</span> <span class="n">keys</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+				<span class="n">nsignals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+					<span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">filtered_peps</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">x</span> <span class="o">!=</span> <span class="s1">&#39;pip&#39;</span>
+				<span class="p">])</span>
+				<span class="n">props</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">filtered_peps</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">n</span><span class="p">]</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nsignals</span><span class="p">])</span>
+				<span class="n">inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="o">*</span><span class="n">props</span><span class="p">)</span>
+				<span class="n">nsignals</span> <span class="o">=</span> <span class="n">nsignals</span><span class="p">[</span><span class="n">inds</span><span class="p">]</span>
+				<span class="n">cumprops</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">props</span><span class="p">[</span><span class="n">inds</span><span class="p">])</span>
+				<span class="k">for</span> <span class="n">ell</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">nsignals</span><span class="p">)):</span>
+					<span class="k">if</span> <span class="n">cumprops</span><span class="p">[</span><span class="n">ell</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">max_pep</span><span class="p">:</span>
+						<span class="n">nsignal_ci</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">nsignals</span><span class="p">[</span><span class="mi">0</span><span class="p">:(</span><span class="n">ell</span><span class="o">+</span><span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+						<span class="n">data_dict</span><span class="p">[</span><span class="s1">&#39;nsignals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nsignal_ci</span>
+						<span class="n">component_cand_groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+							<span class="n">CandidateGroup</span><span class="p">(</span>
+								<span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">,</span>
+								<span class="n">pep</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="o">-</span><span class="n">cumprops</span><span class="p">[</span><span class="n">ell</span><span class="p">]),</span>
+								<span class="n">data</span><span class="o">=</span><span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">data_dict</span><span class="p">)</span>
+							<span class="p">)</span>
+						<span class="p">)</span>
+					<span class="k">if</span> <span class="n">cumprops</span><span class="p">[</span><span class="n">ell</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">min_pep</span><span class="p">:</span>
+						<span class="k">break</span>
+						
+			<span class="k">else</span><span class="p">:</span>
+				<span class="n">component_cand_groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+					<span class="n">CandidateGroup</span><span class="p">(</span>
+						<span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">,</span>
+						<span class="n">pep</span><span class="o">=</span><span class="n">peps_arr</span><span class="p">[</span><span class="n">j</span><span class="p">],</span>
+						<span class="n">data</span><span class="o">=</span><span class="n">data_dict</span>
+					<span class="p">)</span>
+				<span class="p">)</span>
+		<span class="n">all_cand_groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">component_cand_groups</span><span class="p">)</span>
+
+	<span class="c1"># Return</span>
+	<span class="k">return</span> <span class="n">all_cand_groups</span><span class="p">,</span> <span class="n">merged_components</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Asher Spector.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
