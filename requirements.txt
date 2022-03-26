@@ -3,3 +3,4 @@ scipy>=1.6.1
 cvxpy>=1.1.17
 networkx>=2.4
 cython>=0.29.21
+cvxopt>=1.2

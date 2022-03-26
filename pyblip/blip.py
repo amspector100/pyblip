@@ -29,7 +29,7 @@ WEIGHT_FNS = {
 }
 ERROR_OPTIONS = ['fdr', 'local_fdr', 'fwer', 'pfer']
 BINARY_TOL = 1e-3
-DEFAULT_GRID_SIZES = np.around(np.logspace(np.log10(50), 4, 25))
+DEFAULT_GRID_SIZES = np.around(np.logspace(np.log10(50), np.log10(4), 25))
 
 def BLiP(
 	samples=None,
@@ -322,6 +322,7 @@ def BLiP_cts(
 	weight_fn=weight_fns.inverse_radius_weight,
 	max_pep=0.25,
 	max_blip_size=1500,
+	rescale=True,
 	**kwargs
 ):
 	"""
@@ -338,6 +339,10 @@ def BLiP_cts(
 		between posterior iterations.)
 	grid_sizes : list or np.ndarray
 		List of grid sizes to split up the locations.
+	rescale : bool
+		If True, normalizes locs to ensure they are all between 0 and 1.
+		If ``rescale`` is False and this is not true, the function
+		will error.
 	kwargs : dict
 		Additional arguments to pass to the underlying BLiP call.
 
@@ -352,7 +357,17 @@ def BLiP_cts(
 	"""
 
 	# Normalize locations
-	norm_locs, shifts, scales = create_groups_cts.normalize_locs(locs)
+	d = locs.shape[2] # dimensionality
+	if rescale:
+		norm_locs, shifts, scales = create_groups_cts.normalize_locs(locs)
+	else:
+		minval = locs[~np.isnan(locs)].min()
+		maxval = locs[~np.isnan(locs)].max()
+		if minval < 0 or maxval > 1:
+			raise ValueError(f"rescale=False but locs are not between 0 and 1")
+		norm_locs = locs.copy() 
+		shifts = np.zeros(d)
+		scales = np.ones(d)
 
 	# 1. Calculate filtered PEPs
 	peps = create_groups_cts.grid_peps(
@@ -369,14 +384,13 @@ def BLiP_cts(
 	for i, cand_groups in enumerate(all_cand_groups):
 		rej = BLiP(
 			cand_groups=cand_groups,
-			weiht_fn=weight_fn,
+			weight_fn=weight_fn,
 			max_pep=max_pep,
 			**kwargs,
 		)
 		all_rej.extend(rej)
 
 	# 4. Renormalize locations
-	d = locs.shape[2] # dimensionality
 	for cand_group in all_rej:
 		center = np.zeros(d)
 		radius = cand_group.data.pop('radius') * scales + shifts
