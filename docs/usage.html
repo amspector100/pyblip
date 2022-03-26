@@ -53,7 +53,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#2.2-Linear-Spike-and-Slab-model-+-BLiP">2.2 Linear Spike-and-Slab model + BLiP</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#2.3-SuSiE-+-BLiP">2.3 SuSiE + BLiP</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#2.4-Probit-spike-and-slab-model-+-BLiP">2.4 Probit spike-and-slab model + BLiP</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#2.5-An-advantage-of-hierarchical-priors">2.5 An advantage of hierarchical priors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#2.5-Hierarchical-priors-to-avoid-misspecification">2.5 Hierarchical priors to avoid misspecification</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#3.-Changepoint-detection">3. Changepoint detection</a></li>
@@ -673,8 +673,8 @@ BLiP correctly detected a signal variable in {398, 399, 400, 401, 402, 403, 404,
 </pre></div></div>
 </div>
 </div>
-<div class="section" id="2.5-An-advantage-of-hierarchical-priors">
-<h3>2.5 An advantage of hierarchical priors<a class="headerlink" href="#2.5-An-advantage-of-hierarchical-priors" title="Permalink to this headline"></a></h3>
+<div class="section" id="2.5-Hierarchical-priors-to-avoid-misspecification">
+<h3>2.5 Hierarchical priors to avoid misspecification<a class="headerlink" href="#2.5-Hierarchical-priors-to-avoid-misspecification" title="Permalink to this headline"></a></h3>
 <p>BLiP can wrap on top of nearly any Bayesian model, and in practice it is fairly robust to some degree of model mispecification (see the paper for simulations and a discussion of this issue). That said, if the underlying model is extremely poorly specified, BLiP will violate FDR control. For example, in the following problem, the prior indicates that <span class="math notranslate nohighlight">\(80\%\)</span> of the variables are signal variables, whereas in truth only <span class="math notranslate nohighlight">\(4\%\)</span> of the variables are signal variables.</p>
 <div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[55]:

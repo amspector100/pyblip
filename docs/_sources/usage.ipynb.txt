@@ -419,7 +419,7 @@
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "### 2.5 An advantage of hierarchical priors"
+    "### 2.5 Hierarchical priors to avoid misspecification"
    ]
   },
   {
