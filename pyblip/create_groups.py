@@ -148,7 +148,9 @@ def susie_groups(
 	Parameters
 	----------
 	alphas : np.array
-		An ``(L, p)``-shaped matrix of alphas from a SuSiE object.
+		An ``(L, p)``-shaped matrix of alphas from a SuSiE object,
+		``L`` is the number of SuSiE iterations and ``p``
+		is the number of covariates.
 	X : np.array
 		The n x p deisgn matrix. Defaults to ``None.``
 		If provided, adds hierarchical groups based 
@@ -188,9 +190,10 @@ def susie_groups(
 
 	# Add groups discovered by susie
 	for j in range(L):
-		inds = np.argsort(-1*alphas[j])
-		k = np.min(np.where(np.cumsum(alphas[j,inds]) >= 1 - q))
-		groups_to_add.append(inds[0:(k+1)].tolist())
+		if np.sum(alphas[j]) >= 1 - q:
+			inds = np.argsort(-1*alphas[j])
+			k = np.min(np.where(np.cumsum(alphas[j,inds]) >= 1 - q))
+			groups_to_add.append(inds[0:(k+1)].tolist())
 
 	# Add these to cand_groups
 	groups_to_add = _dedup_list_of_lists(groups_to_add)

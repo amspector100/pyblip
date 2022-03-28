@@ -88,7 +88,7 @@ If you use ``pyblip`` or BLiP in an academic publication, please consider citing
 
 ```
 @article{AS-LJ:2022,
-  title={BLiP Title},
+  title={Controlled Discovery and Localization of Signals via Bayesian Linear Programming},
   author={Spector, Asher and Janson, Lucas},
   journal={arxiv},
   year={2022}
