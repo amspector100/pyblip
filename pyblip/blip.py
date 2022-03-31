@@ -192,9 +192,9 @@ def BLiP(
 		# Get weights
 		weights = np.array([weight_fn(x) for x in cand_groups])
 
-	# perturb to avoid degeneracy in some cases
+	# perturb to ensure unique solution
+	orig_weights = weights.copy()
 	if perturb:
-		orig_weights = weights.copy()
 		weights = np.array([
 			w*(1 + 0.0001*np.random.uniform()) for w in weights]
 		)
@@ -435,8 +435,7 @@ def binarize_selections(
 	if problem_status is None:
 		problem_status = dict(backtracking_iter=0)
 
-	# Prune options with zero selection prob
-	# and add options which have selection prob of 1. 
+	# Account for integer solutions
 	nontriv_cand_groups = []
 	for cand_group in cand_groups:
 		if cand_group.data['sprob'] < tol:
@@ -450,9 +449,9 @@ def binarize_selections(
 	ngroups = len(nontriv_cand_groups)
 	problem_status['ngroups_nonint'] = ngroups
 	if ngroups == 0 or ngroups == 1:
-		if ngroups == 1:
-			if not deterministic and np.random.uniform() < nontriv_cand_groups[0].data['sprob']:
-				output.append(nontriv_cand_groups[0])
+		# if ngroups == 1:
+		# 	if not deterministic and np.random.uniform() < nontriv_cand_groups[0].data['sprob']:
+		# 		output.append(nontriv_cand_groups[0])
 		if return_problem_status:
 			return output, problem_status
 		return output
@@ -550,6 +549,7 @@ def binarize_selections(
 			A.T @ x <= b
 		]
 		objective = cp.Maximize(((1-peps) * weights) @ x)
+		# PFER / FWER specific constraints
 		if error in ['pfer', 'fwer']:
 			if error == 'pfer':
 				v_opt = q
@@ -559,8 +559,11 @@ def binarize_selections(
 			constraints += [
 				x @ peps <= v_new
 			]
+		# No backtracking required for PFER, FWER, or local FDR
+		if error in ['pfer', 'fwer', 'local_fdr']:
 			problem = cp.Problem(objective=objective, constraints=constraints)
 			problem.solve(solver=BIN_SOLVER)
+		# FDR may require backtracking
 		elif error == 'fdr':
 			# Create output
 			output = sorted(output, key=lambda x: x.pep)
@@ -592,7 +595,7 @@ def binarize_selections(
 					output = output[0:-1]
 
 		if x.value is None:
-			print(f"stats={problem.status}, nontriv_cand_groups={nontriv_cand_groups}")
+			print(f"status={problem.status}, nontriv_cand_groups={nontriv_cand_groups}")
 
 		for binprob, x in zip(x.value, nontriv_cand_groups):
 			if binprob > 1 - tol:
