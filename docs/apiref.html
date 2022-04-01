@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>API Reference &mdash; pyblip 0.2.0 documentation</title>
+  <title>API Reference &mdash; pyblip 1.0.0 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
@@ -30,7 +30,7 @@
             <a href="index.html" class="icon icon-home"> pyblip
           </a>
               <div class="version">
-                0.2.0
+                1.0.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -63,8 +63,8 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference external" href="https://www.google.com/search?q=blip">BLiP paper</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/pyblip">pyblip GitHuB</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/blipr">blipr GitHuB</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/pyblip">pyblip GitHub</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/blipr">blipr GitHub</a></li>
 </ul>
 
         </div>
@@ -430,7 +430,9 @@ as described in the paper. Defaults to False.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><dl class="simple">
-<dt><strong>alphas</strong><span class="classifier">np.array</span></dt><dd><p>An <code class="docutils literal notranslate"><span class="pre">(L,</span> <span class="pre">p)</span></code>-shaped matrix of alphas from a SuSiE object.</p>
+<dt><strong>alphas</strong><span class="classifier">np.array</span></dt><dd><p>An <code class="docutils literal notranslate"><span class="pre">(L,</span> <span class="pre">p)</span></code>-shaped matrix of alphas from a SuSiE object,
+<code class="docutils literal notranslate"><span class="pre">L</span></code> is the number of SuSiE iterations and <code class="docutils literal notranslate"><span class="pre">p</span></code>
+is the number of covariates.</p>
 </dd>
 <dt><strong>X</strong><span class="classifier">np.array</span></dt><dd><p>The n x p deisgn matrix. Defaults to <code class="docutils literal notranslate"><span class="pre">None.</span></code>
 If provided, adds hierarchical groups based 

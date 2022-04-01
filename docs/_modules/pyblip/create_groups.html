@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>pyblip.create_groups &mdash; pyblip 0.1.4 documentation</title>
+  <title>pyblip.create_groups &mdash; pyblip 1.0.0 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
@@ -29,7 +29,7 @@
             <a href="../../index.html" class="icon icon-home"> pyblip
           </a>
               <div class="version">
-                0.1.4
+                1.0.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -42,7 +42,11 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../installation.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usage.html">Tutorials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../apiref.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://www.google.com/search?q=blip">BLiP paper</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/pyblip">pyblip GitHub</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/blipr">blipr GitHub</a></li>
 </ul>
 
         </div>
@@ -220,7 +224,9 @@
 <span class="sd">	Parameters</span>
 <span class="sd">	----------</span>
 <span class="sd">	alphas : np.array</span>
-<span class="sd">		An ``(L, p)``-shaped matrix of alphas from a SuSiE object.</span>
+<span class="sd">		An ``(L, p)``-shaped matrix of alphas from a SuSiE object,</span>
+<span class="sd">		``L`` is the number of SuSiE iterations and ``p``</span>
+<span class="sd">		is the number of covariates.</span>
 <span class="sd">	X : np.array</span>
 <span class="sd">		The n x p deisgn matrix. Defaults to ``None.``</span>
 <span class="sd">		If provided, adds hierarchical groups based </span>
@@ -260,9 +266,10 @@
 
 	<span class="c1"># Add groups discovered by susie</span>
 	<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
-		<span class="n">inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="o">*</span><span class="n">alphas</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
-		<span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">alphas</span><span class="p">[</span><span class="n">j</span><span class="p">,</span><span class="n">inds</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">))</span>
-		<span class="n">groups_to_add</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inds</span><span class="p">[</span><span class="mi">0</span><span class="p">:(</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+		<span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">alphas</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">:</span>
+			<span class="n">inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="o">*</span><span class="n">alphas</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+			<span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">alphas</span><span class="p">[</span><span class="n">j</span><span class="p">,</span><span class="n">inds</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">))</span>
+			<span class="n">groups_to_add</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inds</span><span class="p">[</span><span class="mi">0</span><span class="p">:(</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
 
 	<span class="c1"># Add these to cand_groups</span>
 	<span class="n">groups_to_add</span> <span class="o">=</span> <span class="n">_dedup_list_of_lists</span><span class="p">(</span><span class="n">groups_to_add</span><span class="p">)</span>

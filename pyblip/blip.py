@@ -314,6 +314,7 @@ def BLiP(
 		deterministic=deterministic,
 		problem_status=problem_status,
 		return_problem_status=return_problem_status,
+		verbose=verbose,
 	)
 
 def BLiP_cts(
@@ -411,6 +412,7 @@ def binarize_selections(
 	return_problem_status=False,
 	tol=1e-3,
 	nsample=10,
+	verbose=False,
 ):
 	"""
 	Parameters
@@ -434,6 +436,8 @@ def binarize_selections(
 	output = []
 	if problem_status is None:
 		problem_status = dict(backtracking_iter=0)
+	if error in ['local_fdr', 'pfer', 'fwer']:
+		cand_groups = create_groups._prefilter(cand_groups, max_pep=q)
 
 	# Account for integer solutions
 	nontriv_cand_groups = []
@@ -462,6 +466,10 @@ def binarize_selections(
 	for gj, cand_group in enumerate(nontriv_cand_groups):
 		for feature in cand_group.data['blip-group']:
 			A[gj, feature] = 1
+	if verbose:
+		msg = f"LP had {ngroups} non-integer solutions across {nrel} locations."
+		msg += f" Binarizing using deterministic={deterministic}."
+		print(msg)
 
 	# Sampling method
 	if not deterministic:
@@ -550,11 +558,10 @@ def binarize_selections(
 		]
 		objective = cp.Maximize(((1-peps) * weights) @ x)
 		# PFER / FWER specific constraints
+		# Note: when binary_search=True for FWER, all solutions
+		# are rounded before entering this function.
 		if error in ['pfer', 'fwer']:
-			if error == 'pfer':
-				v_opt = q
-			else:
-				v_opt = sum([cg.pep * cg.data['sprob'] for cg in cand_groups])
+			v_opt = q
 			v_new = v_opt - v_output
 			constraints += [
 				x @ peps <= v_new
@@ -590,6 +597,8 @@ def binarize_selections(
 						)
 					# Backtrack by getting rid of last group
 					problem_status['backtracking_iter'] += 1
+					if verbose:
+						print(f"Starting backtracking iter={problem_status['backtracking_iter']}")
 					v_output -= output[-1].pep
 					ndisc_out -= 1
 					output = output[0:-1]

@@ -75,11 +75,11 @@ The second step is to apply BLiP directly on top of the posterior samples of the
 		print("BLiP has detected a signal among {x.group}!")
 ```
 
-Please see [amspector100.github.io/pyblip/usage.html](amspector100.github.io/pyblip/usage.html) for examples ranging from variable selection to change-point detection to astronomical point-source detection. 
+Please see [amspector100.github.io/pyblip/usage.html](https://amspector100.github.io/pyblip/usage.html) for examples ranging from variable selection to change-point detection to astronomical point-source detection. 
 
 ## Documentation
 
-Documentation is available at [amspector100.github.io/pyblip](amspector100.github.io/pyblip).
+Documentation is available at [amspector100.github.io/pyblip](https://amspector100.github.io/pyblip).
 
 ## Reference
 
@@ -90,7 +90,8 @@ If you use ``pyblip`` or BLiP in an academic publication, please consider citing
 @article{AS-LJ:2022,
   title={Controlled Discovery and Localization of Signals via Bayesian Linear Programming},
   author={Spector, Asher and Janson, Lucas},
-  journal={arxiv},
+  journal={arXiv preprint arXiv:2203.17208},
+  url={https://arxiv.org/abs/2203.17208},
   year={2022}
 }
 ```

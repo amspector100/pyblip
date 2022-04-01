@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>pyblip.blip &mdash; pyblip 0.1.4 documentation</title>
+  <title>pyblip.blip &mdash; pyblip 1.0.0 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
@@ -29,7 +29,7 @@
             <a href="../../index.html" class="icon icon-home"> pyblip
           </a>
               <div class="version">
-                0.1.4
+                1.0.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -45,6 +45,8 @@
 <li class="toctree-l1"><a class="reference internal" href="../../usage.html">Tutorials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../apiref.html">API Reference</a></li>
 <li class="toctree-l1"><a class="reference external" href="https://www.google.com/search?q=blip">BLiP paper</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/pyblip">pyblip GitHub</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/blipr">blipr GitHub</a></li>
 </ul>
 
         </div>
@@ -266,9 +268,9 @@
 		<span class="c1"># Get weights</span>
 		<span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">weight_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cand_groups</span><span class="p">])</span>
 
-	<span class="c1"># perturb to avoid degeneracy in some cases</span>
+	<span class="c1"># perturb to ensure unique solution</span>
+	<span class="n">orig_weights</span> <span class="o">=</span> <span class="n">weights</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 	<span class="k">if</span> <span class="n">perturb</span><span class="p">:</span>
-		<span class="n">orig_weights</span> <span class="o">=</span> <span class="n">weights</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 		<span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
 			<span class="n">w</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mf">0.0001</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">())</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">weights</span><span class="p">]</span>
 		<span class="p">)</span>
@@ -509,8 +511,7 @@
 	<span class="k">if</span> <span class="n">problem_status</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 		<span class="n">problem_status</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">backtracking_iter</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
-	<span class="c1"># Prune options with zero selection prob</span>
-	<span class="c1"># and add options which have selection prob of 1. </span>
+	<span class="c1"># Account for integer solutions</span>
 	<span class="n">nontriv_cand_groups</span> <span class="o">=</span> <span class="p">[]</span>
 	<span class="k">for</span> <span class="n">cand_group</span> <span class="ow">in</span> <span class="n">cand_groups</span><span class="p">:</span>
 		<span class="k">if</span> <span class="n">cand_group</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;sprob&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">:</span>
@@ -524,9 +525,9 @@
 	<span class="n">ngroups</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">nontriv_cand_groups</span><span class="p">)</span>
 	<span class="n">problem_status</span><span class="p">[</span><span class="s1">&#39;ngroups_nonint&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ngroups</span>
 	<span class="k">if</span> <span class="n">ngroups</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">ngroups</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-		<span class="k">if</span> <span class="n">ngroups</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-			<span class="k">if</span> <span class="ow">not</span> <span class="n">deterministic</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">nontriv_cand_groups</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;sprob&#39;</span><span class="p">]:</span>
-				<span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nontriv_cand_groups</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+		<span class="c1"># if ngroups == 1:</span>
+		<span class="c1"># 	if not deterministic and np.random.uniform() &lt; nontriv_cand_groups[0].data[&#39;sprob&#39;]:</span>
+		<span class="c1"># 		output.append(nontriv_cand_groups[0])</span>
 		<span class="k">if</span> <span class="n">return_problem_status</span><span class="p">:</span>
 			<span class="k">return</span> <span class="n">output</span><span class="p">,</span> <span class="n">problem_status</span>
 		<span class="k">return</span> <span class="n">output</span>
@@ -624,6 +625,7 @@
 			<span class="n">A</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="n">b</span>
 		<span class="p">]</span>
 		<span class="n">objective</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">Maximize</span><span class="p">(((</span><span class="mi">1</span><span class="o">-</span><span class="n">peps</span><span class="p">)</span> <span class="o">*</span> <span class="n">weights</span><span class="p">)</span> <span class="o">@</span> <span class="n">x</span><span class="p">)</span>
+		<span class="c1"># PFER / FWER specific constraints</span>
 		<span class="k">if</span> <span class="n">error</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;pfer&#39;</span><span class="p">,</span> <span class="s1">&#39;fwer&#39;</span><span class="p">]:</span>
 			<span class="k">if</span> <span class="n">error</span> <span class="o">==</span> <span class="s1">&#39;pfer&#39;</span><span class="p">:</span>
 				<span class="n">v_opt</span> <span class="o">=</span> <span class="n">q</span>
@@ -633,8 +635,11 @@
 			<span class="n">constraints</span> <span class="o">+=</span> <span class="p">[</span>
 				<span class="n">x</span> <span class="o">@</span> <span class="n">peps</span> <span class="o">&lt;=</span> <span class="n">v_new</span>
 			<span class="p">]</span>
+		<span class="c1"># No backtracking required for PFER, FWER, or local FDR</span>
+		<span class="k">if</span> <span class="n">error</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;pfer&#39;</span><span class="p">,</span> <span class="s1">&#39;fwer&#39;</span><span class="p">,</span> <span class="s1">&#39;local_fdr&#39;</span><span class="p">]:</span>
 			<span class="n">problem</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">Problem</span><span class="p">(</span><span class="n">objective</span><span class="o">=</span><span class="n">objective</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="n">constraints</span><span class="p">)</span>
 			<span class="n">problem</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">solver</span><span class="o">=</span><span class="n">BIN_SOLVER</span><span class="p">)</span>
+		<span class="c1"># FDR may require backtracking</span>
 		<span class="k">elif</span> <span class="n">error</span> <span class="o">==</span> <span class="s1">&#39;fdr&#39;</span><span class="p">:</span>
 			<span class="c1"># Create output</span>
 			<span class="n">output</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">pep</span><span class="p">)</span>
@@ -666,7 +671,7 @@
 					<span class="n">output</span> <span class="o">=</span> <span class="n">output</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
 
 		<span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-			<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;stats=</span><span class="si">{</span><span class="n">problem</span><span class="o">.</span><span class="n">status</span><span class="si">}</span><span class="s2">, nontriv_cand_groups=</span><span class="si">{</span><span class="n">nontriv_cand_groups</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+			<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;status=</span><span class="si">{</span><span class="n">problem</span><span class="o">.</span><span class="n">status</span><span class="si">}</span><span class="s2">, nontriv_cand_groups=</span><span class="si">{</span><span class="n">nontriv_cand_groups</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 		<span class="k">for</span> <span class="n">binprob</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">nontriv_cand_groups</span><span class="p">):</span>
 			<span class="k">if</span> <span class="n">binprob</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">tol</span><span class="p">:</span>

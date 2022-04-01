@@ -13,6 +13,27 @@ import pyblip
 import numpy as np
 from scipy import stats
 
+# for profiling
+import inspect
+
+
+def run_all_tests(test_classes):
+	"""
+	Usage: 
+	context.run_all_tests(
+		[TestClass(), TestClass2()]
+	)
+	This is useful for making pytest play nice with cprofilev.
+	"""
+	def is_test(method):
+		return str(method).split(".")[1][0:4] == 'test'
+	for c in test_classes:
+		attrs = [getattr(c, name) for name in c.__dir__()]
+		test_methods = [
+			x for x in attrs if inspect.ismethod(x) and is_test(x)
+		]
+		for method in test_methods:
+			method()
 
 def generate_regression_data(
 	n=100,
