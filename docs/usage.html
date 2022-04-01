@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tutorials &mdash; pyblip 1.0.0 documentation</title>
+  <title>Tutorials &mdash; pyblip 0.3.0 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
@@ -33,7 +33,7 @@
             <a href="index.html" class="icon icon-home"> pyblip
           </a>
               <div class="version">
-                1.0.0
+                0.3.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -67,9 +67,9 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="apiref.html">API Reference</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://www.google.com/search?q=blip">BLiP paper</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/pyblip">pyblip GitHub</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/blipr">blipr GitHub</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/pyblip">pyblip source</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/blipr">blipr source</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://arxiv.org/abs/2203.17208">BLiP paper (arXiv)</a></li>
 </ul>
 
         </div>
@@ -389,7 +389,7 @@ div.rendered_html tbody tr:hover {
 <p>In many applications, we can tell that a signal of interest exists but cannot perfectly “localize” it. For example, when regressing an outcome <span class="math notranslate nohighlight">\(Y\)</span> on highly correlated covariates <span class="math notranslate nohighlight">\((X_1, X_2)\)</span>, the data may suggest that <em>at least</em> one of <span class="math notranslate nohighlight">\((X_1, X_2)\)</span> influences <span class="math notranslate nohighlight">\(Y\)</span>, but it may be challenging to tell which of <span class="math notranslate nohighlight">\((X_1, X_2)\)</span> is important. Likewise, in genetic fine-mapping, biologists may have high confidence that a gene influences a disease without knowing precisely
 which genetic variants cause the disease. Similar problems arise in many settings with spatial or temporal structure, including change-point detection and astronomical point-source detection.</p>
 <p><em>Bayesian Linear Programming</em> (BLiP) is a method which jointly detects as many signals as possible while localizing them as precisely as possible. BLiP can wrap on top of nearly any Bayesian model or algorithm, and it will return a set of regions which each contain at least one signal with high confidence. For example, in regression problems, BLiP might return the region <span class="math notranslate nohighlight">\((X_1, X_2)\)</span>, which suggests that at least one of <span class="math notranslate nohighlight">\((X_1, X_2)\)</span> is an important variable. BLiP controls the false
-discovery rate while also making these regions as narrow as possible, meaning that (roughly speaking) it will perfectly localize signals whenever this is possible!</p>
+discovery rate while also making these regions as narrow as possible, meaning that (roughly speaking) it will perfectly localize signals whenever this is possible! See <a class="reference external" href="https://arxiv.org/abs/2203.17208">Spector and Janson (2022)</a> for more details.</p>
 <p><code class="docutils literal notranslate"><span class="pre">pyblip</span></code> is an efficient python implementation of BLiP, which is designed so that BLiP can wrap on top of the Bayesian model in only one or two lines of code. Below, we give concrete examples of how to apply <code class="docutils literal notranslate"><span class="pre">pyblip</span></code> in three settings: variable selection, change-point detection, and point-source detection.</p>
 </div>
 <div class="section" id="2.-Variable-selection">
@@ -605,6 +605,7 @@ Creating cand groups and running BLiP took 0.34 seconds.
 [{54}, {68}, {184}, {272}, {306}, {383}, {426}]
 </pre></div></div>
 </div>
+<p>As the number of signals increases, SuSiE + BLiP tends to have substantially higher power than SuSiE alone, as discussed in <a class="reference external" href="https://arxiv.org/abs/2203.17208">Spector and Janson (2022)</a>.</p>
 </div>
 <div class="section" id="2.4-Probit-spike-and-slab-model-+-BLiP">
 <h3>2.4 Probit spike-and-slab model + BLiP<a class="headerlink" href="#2.4-Probit-spike-and-slab-model-+-BLiP" title="Permalink to this headline"></a></h3>
@@ -681,7 +682,8 @@ BLiP correctly detected a signal variable in {398, 399, 400, 401, 402, 403, 404,
 </div>
 <div class="section" id="2.5-Hierarchical-priors-to-ensure-error-control">
 <h3>2.5 Hierarchical priors to ensure error control<a class="headerlink" href="#2.5-Hierarchical-priors-to-ensure-error-control" title="Permalink to this headline"></a></h3>
-<p>BLiP can wrap on top of nearly any Bayesian model, and in practice, it is fairly robust to some degree of model misspecification (see the paper for simulations and a discussion of this issue). That said, if the underlying model is extremely poorly specified, BLiP will violate FDR control. For example, in the following problem, the prior indicates that <span class="math notranslate nohighlight">\(50\%\)</span> of the variables are signal variables, whereas in truth only <span class="math notranslate nohighlight">\(4\%\)</span> of the variables are signal variables.</p>
+<p>BLiP can wrap on top of nearly any Bayesian model, and in practice, it is fairly robust to some degree of model misspecification (see <a class="reference external" href="https://arxiv.org/abs/2203.17208">Spector and Janson (2022)</a> for simulations and a discussion of this issue). That said, if the underlying model is extremely poorly specified, BLiP will violate FDR control. For example, in the following problem, the prior indicates that <span class="math notranslate nohighlight">\(50\%\)</span> of the variables are signal variables, whereas in truth only <span class="math notranslate nohighlight">\(4\%\)</span> of
+the variables are signal variables.</p>
 <div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
@@ -721,7 +723,7 @@ BLiP problem has 2263 groups in contention, with 500 active features/locations
 </pre></div></div>
 </div>
 <p>To avoid this situation, we recommend using <strong>hierarchical priors</strong> on unknown nuisance parameters like the sparsity level in regression problems, with a conservative choice of hyperparameters. The samplers in <code class="docutils literal notranslate"><span class="pre">pyblip</span></code> automatically use relatively uninformative hierarchical priors which empirically control the FDR well in a variety of settings. For example, in the previous examples, the prior was quite uninformative, and BLiP still performed quite well.</p>
-<p>When using MCMC algorithms, we also recommend <strong>running multiple MCMC chains</strong> with different initializations to protect against convergence issues As discussed in the paper, even when each individual MCMC chain fails to converge, often using multiple chains will overstate the uncertainty in the location of signals, leading to conservative but valid inference.</p>
+<p>When using MCMC algorithms, we also recommend <strong>running multiple MCMC chains</strong> with different initializations to protect against convergence issues. As discussed in <a class="reference external" href="https://arxiv.org/abs/2203.17208">Spector and Janson (2022)</a>, even when each individual MCMC chain fails to converge, often using multiple chains will overstate the uncertainty in the location of signals, leading to conservative but valid inference.</p>
 </div>
 </div>
 <div class="section" id="3.-Changepoint-detection">
@@ -750,7 +752,7 @@ BLiP problem has 2263 groups in contention, with 500 active features/locations
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
-<img alt="_images/usage_36_0.png" src="_images/usage_36_0.png" />
+<img alt="_images/usage_37_0.png" src="_images/usage_37_0.png" />
 </div>
 </div>
 <p>To detect regions where the true mean of <span class="math notranslate nohighlight">\(Y\)</span> has changed, we can call the function <code class="docutils literal notranslate"><span class="pre">detect</span> <span class="pre">changepoints</span></code> which will fit a spike-and-slab changepoint model and apply BLiP on top of it. This only takes one line!</p>
@@ -822,7 +824,7 @@ Long-step dual simplex will be used
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
-<img alt="_images/usage_40_0.png" src="_images/usage_40_0.png" />
+<img alt="_images/usage_41_0.png" src="_images/usage_41_0.png" />
 </div>
 </div>
 <p>As we can see, in this example, BLiP does a pretty good job both detecting change-points and quantifying our uncertainty in their locations. The vertical, thin green bars are change-points which have been perfectly localized.</p>
@@ -869,11 +871,11 @@ Long-step dual simplex will be used
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
-<img alt="_images/usage_45_0.png" src="_images/usage_45_0.png" />
+<img alt="_images/usage_46_0.png" src="_images/usage_46_0.png" />
 </div>
 </div>
 <p>Next, we load the posterior samples from the pretrained StarNet model. See <a class="reference external" href="https://github.com/Runjing-Liu120/DeblendingStarfields">here</a> or <a class="reference external" href="https://github.com/amspector100/DeblendingStarfields%5D">here</a> for examples of how to fit pretrained StarNet models.</p>
-<p>Note that the posterior samples are an <span class="math notranslate nohighlight">\((N, n_{\mathrm{source}}, d)\)</span>-shaped array, where <span class="math notranslate nohighlight">\(N\)</span> is the number of posterior samples and <span class="math notranslate nohighlight">\(d=2\)</span> is the dimension of the image. If <code class="docutils literal notranslate"><span class="pre">post_samples[i,</span> <span class="pre">j]</span> <span class="pre">=</span> <span class="pre">(x,</span> <span class="pre">y)</span></code>, this means that the <span class="math notranslate nohighlight">\(i\)</span>th posterior sample has asserted that there is a point-source at location <span class="math notranslate nohighlight">\((x,y)\)</span>. Since there may be different numbers of point-sources per iteration, NaNs are ignored. See the documentation for more details on the data input format.</p>
+<p>Note that the posterior samples are an <span class="math notranslate nohighlight">\((N, n_{\mathrm{source}}, d)\)</span>-shaped array, where <span class="math notranslate nohighlight">\(N\)</span> is the number of posterior samples and <span class="math notranslate nohighlight">\(d=2\)</span> is the dimension of the image. If <code class="docutils literal notranslate"><span class="pre">post_samples[i,</span> <span class="pre">j]</span> <span class="pre">=</span> <span class="pre">(x,</span> <span class="pre">y)</span></code>, this means that the <span class="math notranslate nohighlight">\(i\)</span>th posterior sample has asserted that there is a point-source at location <span class="math notranslate nohighlight">\((x,y)\)</span>. Since there may be different numbers of point-sources per iteration, NaNs are ignored. See API reference for more details on the data input format.</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
@@ -978,7 +980,7 @@ array([[0.07735128, 0.33859724],
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
-<img alt="_images/usage_52_0.png" src="_images/usage_52_0.png" />
+<img alt="_images/usage_53_0.png" src="_images/usage_53_0.png" />
 </div>
 </div>
 <p>As we can see, BLiP makes four true detections at various resolutions based on the posterior samples.</p>
