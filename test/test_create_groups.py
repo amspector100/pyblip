@@ -59,19 +59,30 @@ class CheckCandGroups(unittest.TestCase):
 		if shape != 'circle':
 			raise NotImplementedError("Only works for circles currently")
 		# Check that overlap calculations are correct
-		for cg1 in cand_groups:
+		for j1, cg1 in enumerate(cand_groups):
 			g1 = cg1.group
-			for cg2 in cand_groups:
+			for j2, cg2 in enumerate(cand_groups):
+				if j2 >= j1:
+					continue
 				g2 = cg2.group
+				c1 = np.array(cg1.data['center'])
+				c2 = np.array(cg2.data['center'])
+				dist = np.sqrt(np.sum(np.power(c1-c2, 2)))
+				r1, r2 =  cg1.data['radius'], cg2.data['radius']
 				if len(g1.intersection(g2)) > 0:
-					c1 = np.array(cg1.data['center'])
-					c2 = np.array(cg2.data['center'])
-					dist = np.sqrt(np.sum(np.power(c1-c2, 2)))
-					r1, r2 =  cg1.data['radius'], cg2.data['radius']
 					self.assertTrue(
 						dist < r1 + r2,
 						f"""
-						BLiP posits c1, c2 groups ({g1}, {g2}) overlap. Centers= {c1} and {c2} with dist={dist} and r1={r1} and r2={r2}.
+						BLiP posits c1, c2 groups ({g1}, {g2}) overlap. Centers= {c1} and {c2} with dist={dist}
+						and r1={r1}, r2={r2}, j1={j1}, j2={j2}.
+						"""
+					)
+				else:
+					self.assertTrue(
+						dist >= r1 + r2 + 1e-5,
+						f"""
+						BLiP posits c1, c2 groups ({g1}, {g2}) do not overlap. Centers= {c1} and {c2}  with dist={dist}
+						and r1={r1}, r2={r2}, j1={j1}, j2={j2}.
 						"""
 					)
 
@@ -338,7 +349,7 @@ class TestCtsPEPs(CheckCandGroups):
 
 		# Compute BLiP nodes
 		all_cgroups, components = create_groups_cts.grid_peps_to_cand_groups(
-			peps, verbose=True, shape='square'
+			peps, verbose=True, shape='circle'
 		)
 		self.assertTrue(
 			len(components) == 1,
@@ -369,7 +380,7 @@ class TestCtsPEPs(CheckCandGroups):
 			[[0.549, 0.451], [0.305, 0.201]],
 			[[0.553, 0.456], [np.nan, np.nan]]
 		])
-		
+
 		# Run with one manual center added
 		xc1 = 0.55012
 		yc1 = 0.45012

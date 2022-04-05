@@ -29,7 +29,7 @@ WEIGHT_FNS = {
 }
 ERROR_OPTIONS = ['fdr', 'local_fdr', 'fwer', 'pfer']
 BINARY_TOL = 1e-3
-DEFAULT_GRID_SIZES = np.around(np.logspace(np.log10(50), np.log10(4), 25))
+DEFAULT_GRID_SIZES = np.around(np.logspace(np.log10(4), 4, 25))
 
 def BLiP(
 	samples=None,
@@ -322,7 +322,7 @@ def BLiP_cts(
 	grid_sizes=DEFAULT_GRID_SIZES,
 	weight_fn=weight_fns.inverse_radius_weight,
 	max_pep=0.25,
-	max_blip_size=1500,
+	min_blip_size=1500,
 	rescale=True,
 	**kwargs
 ):
@@ -377,7 +377,7 @@ def BLiP_cts(
 
 	# 2. Calculate nodes, components, and so on
 	all_cand_groups, _ = create_groups_cts.grid_peps_to_cand_groups(
-		peps, max_blip_size=max_blip_size
+		peps, min_blip_size=min_blip_size
 	)
 
 	# 3. Run BLiP

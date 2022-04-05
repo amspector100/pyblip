@@ -245,7 +245,7 @@ def grid_peps(
 def grid_peps_to_cand_groups(
 	filtered_peps, 
 	time0=None,
-	max_blip_size=1000,
+	min_blip_size=1000,
 	verbose=False,
 	shape='square',
 	max_pep=1,
@@ -261,8 +261,9 @@ def grid_peps_to_cand_groups(
 		An output of the ``grid_peps`` function.
 	time0 : float
 		The initial time the analysis started, useful for logging.
-	max_blip_size : int
-		Maximum size of a problem that can be fed into BLiP.
+	min_blip_size : int
+		Combines connected components so all subproblems are at least
+		this size.
 	verbose: bool
 		If True, will report progress over time. Default: False.
 	shape : string
@@ -331,7 +332,7 @@ def grid_peps_to_cand_groups(
 	components = list(nx.algorithms.components.connected_components(G))
 	merged_components = [[]]
 	for c in components:
-		if len(merged_components[-1]) + len(c) > max_blip_size:
+		if len(merged_components[-1]) + len(c) > min_blip_size:
 			merged_components.append([])
 		merged_components[-1].extend(list(c))
 	del G # save memory
