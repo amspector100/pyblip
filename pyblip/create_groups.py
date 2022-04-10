@@ -4,6 +4,8 @@ import numpy as np
 # Tree methods from scipy
 import scipy.cluster.hierarchy as hierarchy
 import scipy.spatial.distance as ssd
+import networkx as nx
+from .ecc import edge_clique_cover
 
 MIN_PEP = 1e-15 # for numerical stability
 
@@ -491,3 +493,62 @@ def _elim_redundant_features(cand_groups):
 	return cand_groups, nrel
 
 
+def _ecc_reduction(cand_groups):
+	"""
+	Given a set of ``CandidateGroup``s with finite group
+	attributes, performs an ECC reduction to reduce
+	the number of locations.
+
+	Parameters
+	----------
+	cand_groups : list
+		A list of CandidateGroup objects.
+
+	Returns
+	-------
+	cand_groups : list
+		The same list of CandidateGroup objects but with
+		an updated 'blip-group' attribute.
+	nrel : int
+		Number of locations in reduced problem.
+
+
+	Notes
+	-----
+	This function is intended as a preprocessing step
+	for certain discrete problems. For continuous problems,
+	use the functions in the ``pyblip.create_groups_cts``
+	module.
+
+	It is not yet efficient and is largely used to reduce very
+	small problems to avoid solver error. 
+	"""
+	hasblipgroup = ['blip-group' in cg.data for cg in cand_groups]
+	if not np.all(np.array(hasblipgroup)):
+		for cg in cand_groups:
+			cg.data['blip-group'] = cg.group
+
+	# O(|G|^2) algorithm to find intersections
+	m = len(cand_groups)
+	G = np.eye(m).astype(bool)
+	for i, cg1 in enumerate(cand_groups):
+		g1 = cg1.data['blip-group']
+		for j in range(i):
+			g2 = cand_groups[j].data['blip-group']
+			if len(g1.intersection(g2)) > 0:
+				G[i, j] = True
+				G[j, i] = True
+
+	# edge clique cover
+	G = nx.Graph(G)
+	cliques = edge_clique_cover(G)
+	# reset blip-group
+	for cg in cand_groups:
+		cg.data['blip-group'] = []
+	for cliquenum, clique in enumerate(cliques):
+		for i in clique:
+			cand_groups[i].data['blip-group'].append(cliquenum)
+	for cg in cand_groups:
+		cg.data['blip-group'] = set(cg.data['blip-group'])
+
+	return cand_groups, len(cliques)

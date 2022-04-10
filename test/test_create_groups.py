@@ -7,6 +7,7 @@ import pytest
 from .context import pyblip
 from collections import Counter
 from pyblip import create_groups, create_groups_cts
+from pyblip.create_groups import CandidateGroup
 
 class CheckCandGroups(unittest.TestCase):
 	"""
@@ -53,6 +54,24 @@ class CheckCandGroups(unittest.TestCase):
 						observed_prop,
 						decimal=5,
 						err_msg=f"Prop. nsignals={nsignal} at {key} should be {expected_prop} but is {observed_prop}"
+					)
+
+	def check_blip_groups_correct(self, cand_groups):
+		for j1, cg1 in enumerate(cand_groups):
+			g1 = cg1.group
+			bg1 = cg1.data['blip-group']
+			for j2 in range(j1):
+				g2 = cand_groups[j2].group
+				bg2 = cand_groups[j2].data['blip-group']
+				if len(g1.intersection(g2)) > 0:
+					self.assertTrue(
+						len(bg1.intersection(bg2)) > 0,
+						f'Groups {g1}, {g2} overlap but BLiP groups {bg1}, {bg2} do not. cgs={cand_groups}.'
+					)
+				else:
+					self.assertTrue(
+						len(bg1.intersection(bg2)) == 0,
+						f'Groups {g1}, {g2} do not overlap but BLiP groups {bg1}, {bg2} do. cgs={cand_groups}.'
 					)
 		
 	def check_cand_groups_correct(self, cand_groups, shape):
@@ -102,6 +121,30 @@ class TestCandGroups(CheckCandGroups):
 			"_dedup_list_of_lists fails to accurately deduplicate"
 		)
 
+	def test_ecc_reduction(self):
+		cand_groups1 = [
+			CandidateGroup(pep=0, group=set([0,1])),
+			CandidateGroup(pep=0, group=set([1,2])),
+			CandidateGroup(pep=0, group=set([0,2]))
+		]
+		ncg = 100
+		p = 50
+		cand_groups2 = []
+		for j in range(ncg):
+			cand_groups2.append(
+				CandidateGroup(
+					pep=0, 
+					group=set(np.random.choice(np.arange(p), 5))
+				)
+			)
+		for i, cand_groups in enumerate([cand_groups1, cand_groups2]):
+			cand_groups, nrel = pyblip.create_groups._ecc_reduction(cand_groups)
+			self.check_blip_groups_correct(cand_groups)
+			if i == 0:
+				self.assertTrue(
+					nrel==1, f"For simple problem nrel={nrel}, should be 1, cgs={cand_groups}."
+				)
+
 	def test_sequential_groups(self):
 		
 		# Generate fake data
@@ -114,7 +157,7 @@ class TestCandGroups(CheckCandGroups):
 		])
 
 		cand_groups = create_groups.sequential_groups(
-			samples, max_size=4
+			samples, max_size=4, max_pep=1
 		)
 		expected_length = int(5+4+3+2) - 1 # ignores columm with all zeros
 		self.assertTrue(
@@ -201,7 +244,7 @@ class TestCandGroups(CheckCandGroups):
 
 		# Check that the default includes the expected groups
 		cand_groups = create_groups.hierarchical_groups(
-			samples, filter_sequential=False
+			samples, filter_sequential=False, max_pep=1
 		)
 		groups = [x.group for x in cand_groups]
 		expected = [set([i]) for i in [0,1,3,4]] + [set([0,1]), set([0,1,2,3,4])]

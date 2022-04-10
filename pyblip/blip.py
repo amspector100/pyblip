@@ -458,6 +458,7 @@ def binarize_selections(
 
 	# Constraints to ensure selected groups are disjoint
 	nontriv_cand_groups, nrel = create_groups._elim_redundant_features(nontriv_cand_groups)
+	nontriv_cand_groups, nrel = create_groups._ecc_reduction(nontriv_cand_groups)
 	A = np.zeros((ngroups, nrel), dtype=bool)
 	for gj, cand_group in enumerate(nontriv_cand_groups):
 		for feature in cand_group.data['blip-group']:
@@ -579,14 +580,15 @@ def binarize_selections(
 				]
 				problem = cp.Problem(objective=objective, constraints=constraints_fdr)
 				try:
-					problem.solve(solver='GLPK_MI')
-				except cp.error.SolverError as e:
 					problem.solve(solver=BIN_SOLVER)
 					# Check that this yields a real feasible solution
-					max_dist = np.minimum(np.abs(x.value), np.abs(x.value-1)).max()
-					if problem.status != 'infeasible':
-						if x.value @ (peps - q) > fdr_rhs + tol or max_dist > tol:
-							raise cp.error.SolverError(f"Solver={BIN_SOLVER} yielded infeasible solution") 
+					if x.value is not None:
+						max_dist = np.minimum(np.abs(x.value), np.abs(x.value-1)).max()
+						if problem.status != 'infeasible':
+							if x.value @ (peps - q) > fdr_rhs + tol or max_dist > tol:
+								raise cp.error.SolverError(f"Solver={BIN_SOLVER} yielded infeasible solution") 
+				except cp.error.SolverError as e:
+					problem.solve(solver='GLPK_MI')
 				if problem.status != 'infeasible':
 					break
 				else:
