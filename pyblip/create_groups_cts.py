@@ -223,23 +223,6 @@ def grid_peps(
 
 	return filtered_peps
 
-# def _postprocess_peps_count_signals(
-# 	filtered_peps,
-# 	max_pep=0.5,
-# 	cutoff=0.95,
-# ):
-# 	"""
-# 	Given the output of grid_peps with count_signals=True,
-# 	postprocesses the result. This is a helper function for
-# 	grid_peps_to_cand_groups.
-# 	"""
-# 	output = dict()
-# 	for key in filtered_peps.keys():
-# 		nsignals = [x for x in filtered_peps[key].keys() if x != 'pip']
-# 		props = [filtered_peps[key][n] for n in nsignals]
-# 		inds = np.argsort(props)
-
-
 
 
 def grid_peps_to_cand_groups(
@@ -248,7 +231,7 @@ def grid_peps_to_cand_groups(
 	min_blip_size=1000,
 	verbose=False,
 	shape='square',
-	max_pep=1,
+	max_pep=0.25,
 	min_pep=0.001,
 ):
 	"""

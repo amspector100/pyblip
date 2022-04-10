@@ -181,7 +181,7 @@ class TestBLiP(CheckDetections):
 		p0s = np.random.beta(a=1, b=3, size=p2)
 		samples2 = np.random.binomial(1, p0s, size=(1000,p2))
 		cand_groups2 = pyblip.create_groups.sequential_groups(
-			samples=samples2
+			samples=samples2, max_pep=0.5
 		)
 
 		# Test Bayesian error control.
@@ -223,6 +223,7 @@ class TestBLiP(CheckDetections):
 			error='fdr',
 			weight_fn='prespecified',
 			q=q,
+			max_pep=1,
 			deterministic=True,
 			return_problem_status=True,
 		)
@@ -256,6 +257,7 @@ class TestBLiP(CheckDetections):
 			error='fdr',
 			weight_fn='prespecified',
 			q=q,
+			max_pep=1,
 			deterministic=True,
 			return_problem_status=True,
 		)

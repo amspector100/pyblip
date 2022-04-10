@@ -54,7 +54,7 @@ def all_cand_groups(
 	samples,
 	X=None,
 	q=0,
-	max_pep=1,
+	max_pep=0.25,
 	max_size=25,
 	prenarrow=True,
 	prefilter_thresholds=[0, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2]
@@ -138,7 +138,7 @@ def susie_groups(
 	alphas,
 	X,
 	q,
-	max_pep=1,
+	max_pep=0.25,
 	max_size=25,
 	prenarrow=False
 ):
@@ -216,7 +216,7 @@ def sequential_groups(
 	samples=None, 
 	susie_alphas=None,
 	q=0,
-	max_pep=1,
+	max_pep=0.25,
 	max_size=25,
 	prenarrow=False
 ):
@@ -313,7 +313,7 @@ def sequential_groups(
 def hierarchical_groups(
 	samples,
 	dist_matrix=None,
-	max_pep=1,
+	max_pep=0.25,
 	max_size=25,
 	filter_sequential=False,
 	**kwargs

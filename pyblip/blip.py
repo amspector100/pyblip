@@ -37,7 +37,7 @@ def BLiP(
 	weight_fn='inverse_size',
 	error='fdr',
 	q=0.1,
-	max_pep=0.5,
+	max_pep=0.25,
 	deterministic=True,
 	verbose=True,
 	perturb=True,
@@ -216,7 +216,6 @@ def BLiP(
 	b = np.ones(nrel)
 	v_param = cp.Parameter()
 	v_param.value = q
-	v_var = cp.Variable(pos=True) # for FDR only
 
 	# We perform a binary for FWER to find optimal v.
 	if samples is not None and error == 'fwer' and search_method == 'binary':
@@ -238,10 +237,7 @@ def BLiP(
 	# Extra constraints for fdr
 	elif error == 'fdr':
 		constraints += [
-			x @ peps <= v_var,
-			cp.sum(x) >= v_var / q,
-			v_var >= 0,
-			v_var <= q * nrel + 1
+			x @ (peps - q) <= 0
 		]
 
 	# Create problem
@@ -468,7 +464,7 @@ def binarize_selections(
 			A[gj, feature] = 1
 	if verbose:
 		msg = f"LP had {ngroups} non-integer solutions across {nrel} locations."
-		msg += f" Binarizing using deterministic={deterministic}."
+		msg += f" Binarizing with deterministic={deterministic}."
 		print(msg)
 
 	# Sampling method
@@ -577,16 +573,20 @@ def binarize_selections(
 			# Iteratively try to solve problem and then backtrack if infeasible
 			# (backtracking is extremely rare)
 			while len(output) >= 0:
-				v_var = cp.Variable(pos=True)
+				fdr_rhs = ndisc_out * q - v_output
 				constraints_fdr = constraints + [
-					x @ peps <= v_var,
-					cp.sum(x) >= (v_var + v_output) / q - ndisc_out
+					x @ (peps - q) <= fdr_rhs,
 				]
 				problem = cp.Problem(objective=objective, constraints=constraints_fdr)
 				try:
 					problem.solve(solver='GLPK_MI')
 				except cp.error.SolverError as e:
 					problem.solve(solver=BIN_SOLVER)
+					# Check that this yields a real feasible solution
+					max_dist = np.minimum(np.abs(x.value), np.abs(x.value-1)).max()
+					if problem.status != 'infeasible':
+						if x.value @ (peps - q) > fdr_rhs + tol or max_dist > tol:
+							raise cp.error.SolverError(f"Solver={BIN_SOLVER} yielded infeasible solution") 
 				if problem.status != 'infeasible':
 					break
 				else:

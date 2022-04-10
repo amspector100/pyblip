@@ -86,7 +86,7 @@ setup(
         "cvxpy>=1.1.17", 
         "networkx>=2.4",
         "cython>=0.29.21",
-        "cvxopt>=1.2",
+        "cvxopt>=1.3.0",
     ],
     setup_requires=[
         'numpy>=1.19',
