@@ -142,7 +142,8 @@ def susie_groups(
 	q,
 	max_pep=0.25,
 	max_size=25,
-	prenarrow=False
+	prenarrow=False,
+	purity_threshold=0.0,
 ):
 	"""
 	Creates candidate groups based on a SuSiE fit.
@@ -167,6 +168,10 @@ def susie_groups(
 	prenarrow : bool
 		If true, "prenarrows" the candidate groups
 		as described in the paper. Defaults to False.
+	purity_threshold : float
+		When computing PIPs, ignores SuSiE iterations which
+		do not pass this purity threshold, as in the original
+		SusiE paper.
 
 	Returns
 	-------
@@ -175,7 +180,19 @@ def susie_groups(
 	"""
 	L, p = alphas.shape
 	np.random.seed(1)
-	# Start with sequential groups
+	# Preprocessing
+	if 
+
+	# Add groups discovered by susie
+	groups_to_add = []
+	for j in range(L):
+		if np.sum(alphas[j]) >= 1 - q:
+			inds = np.argsort(-1*alphas[j])
+			k = np.min(np.where(np.cumsum(alphas[j,inds]) >= 1 - q))
+			group = inds[0:(k+1)].tolist()
+			groups_to_add.append(group)
+
+	# sequential groups
 	cand_groups = sequential_groups(
 		susie_alphas=alphas, 
 		q=q,
@@ -186,16 +203,7 @@ def susie_groups(
 	# Add hierarchical groups
 	if X is not None:
 		dist_matrix = np.abs(1 - np.corrcoef(X.T))
-		groups_to_add = _dist_matrices_to_groups(dist_matrix)
-	else:
-		groups_to_add = []
-
-	# Add groups discovered by susie
-	for j in range(L):
-		if np.sum(alphas[j]) >= 1 - q:
-			inds = np.argsort(-1*alphas[j])
-			k = np.min(np.where(np.cumsum(alphas[j,inds]) >= 1 - q))
-			groups_to_add.append(inds[0:(k+1)].tolist())
+		groups_to_add.extend(_dist_matrices_to_groups(dist_matrix))
 
 	# Add these to cand_groups
 	groups_to_add = _dedup_list_of_lists(groups_to_add)
