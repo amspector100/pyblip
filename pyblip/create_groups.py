@@ -138,8 +138,8 @@ def all_cand_groups(
 
 def susie_groups(
 	alphas,
-	X,
 	q,
+	X=None,
 	max_pep=0.25,
 	max_size=25,
 	prenarrow=False,
@@ -154,12 +154,12 @@ def susie_groups(
 		An ``(L, p)``-shaped matrix of alphas from a SuSiE object,
 		``L`` is the number of SuSiE iterations and ``p``
 		is the number of covariates.
+	q : float
+		The level at which to control the error rate
 	X : np.array
 		The n x p deisgn matrix. Defaults to ``None.``
 		If provided, adds hierarchical groups based 
 		on a correlation cluster of X.
-	q : float
-		The level at which to control the error rate
 	max_pep : float
 		The maximum posterior error probability allowed in
 		a candidate group. Default is 1.
@@ -181,16 +181,32 @@ def susie_groups(
 	L, p = alphas.shape
 	np.random.seed(1)
 	# Preprocessing
-	if 
+	if purity_threshold > 0 and X is None:
+		raise ValueError("When purity_threshold > 0, X must be provided.")
+	elif purity_threshold > 0:
+		Sigma = np.corrcoef(X.T)
 
 	# Add groups discovered by susie
+	Linds = []
 	groups_to_add = []
 	for j in range(L):
 		if np.sum(alphas[j]) >= 1 - q:
 			inds = np.argsort(-1*alphas[j])
 			k = np.min(np.where(np.cumsum(alphas[j,inds]) >= 1 - q))
 			group = inds[0:(k+1)].tolist()
-			groups_to_add.append(group)
+			if purity_threshold > 0:
+				mincorr = np.min(np.abs(Sigma[group][:, group]))
+				if mincorr > purity_threshold:
+					groups_to_add.append(group)
+					Linds.append(j)
+			else:
+				groups_to_add.append(group)
+				Linds.append(j)
+
+	# Adjust alphas
+	if len(Linds) == 0:
+		return []
+	alphas = alphas[Linds, :]
 
 	# sequential groups
 	cand_groups = sequential_groups(

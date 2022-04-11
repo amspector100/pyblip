@@ -1,6 +1,7 @@
 import time
 import numpy as np
 import scipy as sp
+import scipy.linalg
 from scipy import stats
 import unittest
 import pytest
@@ -305,6 +306,39 @@ class TestCandGroups(CheckCandGroups):
 				pep,
 				decimal=10,
 				err_msg=f'susie_groups computed the wrong pep for group={g}, pep={cg.pep}, expected={pep}'
+			)
+
+	def test_susie_groups_purity(self):
+		# susie alphas, L = 3, p = 5
+		p = 5
+		n = 10000
+		rho = 0.9
+
+		# Correlation matrix
+		c = np.cumsum(np.zeros(p) + np.log(rho)) - np.log(rho)
+		cov = scipy.linalg.toeplitz(np.exp(c))
+		X = np.dot(np.random.randn(n, p), np.linalg.cholesky(cov).T)
+
+		# susie alphas
+		alphas = np.array([
+			[0.1, 0.5, 0.4, 0.0, 0.0],
+			[0.5, 0.0, 0.0, 0.0, 0.5],
+			[0.2, 0.2, 0.2, 0.2, 0.2],
+		])
+		pt = 0.7
+		cand_groups = create_groups.susie_groups(
+			alphas, 
+			X=X, 
+			purity_threshold=pt,
+			q=0.1,
+			max_pep=1
+		)
+		for cg in cand_groups:
+			expected = 1 - alphas[0, list(cg.group)].sum()
+			np.testing.assert_almost_equal(
+				expected, cg.pep, 3,
+				f"PEP {cg.pep} != expected {expected} for susie group={cg.group} with purity threshold={pt}"
+
 			)
 
 
