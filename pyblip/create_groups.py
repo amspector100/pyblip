@@ -144,6 +144,7 @@ def susie_groups(
 	max_size=25,
 	prenarrow=False,
 	purity_threshold=0.0,
+	k_threshold=None,
 ):
 	"""
 	Creates candidate groups based on a SuSiE fit.
@@ -172,6 +173,9 @@ def susie_groups(
 		When computing PIPs, ignores SuSiE iterations which
 		do not pass this purity threshold, as in the original
 		SusiE paper.
+	k_threshold : float
+		When computing PIPs, ignores SuSiE iterations for which
+		the vanilla SuSiE CS exceeds this size.
 
 	Returns
 	-------
@@ -183,6 +187,8 @@ def susie_groups(
 	# Preprocessing
 	if purity_threshold > 0 and X is None:
 		raise ValueError("When purity_threshold > 0, X must be provided.")
+	if k_threshold is None:
+		k_threshold = p + 1
 	elif purity_threshold > 0:
 		Sigma = np.corrcoef(X.T)
 
@@ -194,12 +200,12 @@ def susie_groups(
 			inds = np.argsort(-1*alphas[j])
 			k = np.min(np.where(np.cumsum(alphas[j,inds]) >= 1 - q))
 			group = inds[0:(k+1)].tolist()
-			if purity_threshold > 0:
+			if purity_threshold > 0 and k + 1 <= k_threshold:
 				mincorr = np.min(np.abs(Sigma[group][:, group]))
 				if mincorr > purity_threshold:
 					groups_to_add.append(group)
 					Linds.append(j)
-			else:
+			elif k + 1 <= k_threshold:
 				groups_to_add.append(group)
 				Linds.append(j)
 
