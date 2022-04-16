@@ -468,7 +468,6 @@ def finemap_groups(
 		raise e 
 
 	# Extract configuration output
-	time0 = time.time()
 	configdf = pd.read_csv(
 		configfile,
 		delimiter=' ',
@@ -476,18 +475,15 @@ def finemap_groups(
 	)
 	nconfig = configdf.shape[0]
 	configdf['rank'] = np.arange(nconfig)
-	print(f"nconfig={nconfig}, maxrank={configdf['rank'].max()}")
 	configdf['config'] = configdf['config'].str.replace("rs", '')
 	configdf['config'] = configdf['config'].str.split(",").apply(
 		lambda x: [int(d) for d in x]
 	)
 	p = int(configdf['config'].apply(lambda x: np.max(x)).max()) + 1
-	print(f"Finished splitting and applying, took={time.time()-time0}")
 	configdf['config'] = configdf.apply(
 		lambda row: [p*row['rank'] + d for d in row['config']],
 		axis='columns'
 	)
-	print(f"Finished apply(row), took={time.time()-time0}")
 	inds = [x for l in configdf['config'].tolist() for x in l]
 	# Create inclusions
 	inclusions = np.zeros(p*nconfig, dtype=bool)
