@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import pandas as pd
 import scipy as sp
 import scipy.linalg
 from scipy import stats
@@ -21,6 +22,22 @@ class CheckCandGroups(unittest.TestCase):
 			len(groups)==len(dedup_groups),
 			f"groups={groups} appears to contain duplicates with len(dedup_groups)={len(dedup_groups)}"
 		)
+
+	def check_discrete_cg_peps_correct(self, samples, cand_groups, sample_weights=None):
+		N, p = samples.shape
+		samples = samples != 0
+		sample_weights = create_groups._process_sample_weights(
+			N=N, sample_weights=sample_weights
+		)
+		for cg in cand_groups:
+			group = list(cg.group)
+			pep = 1 - np.dot(sample_weights, np.any(samples[:, group], axis=1))
+			np.testing.assert_almost_equal(
+				pep,
+				cg.pep,
+				decimal=5,
+				err_msg=f"PEP at {cg.group} should be {pep} but is {cg.pep}"
+			)
 
 	def check_peps_correct(self, peps, x, y, radius, locs, shape, count_signals=False):
 		if shape != 'circle':
@@ -213,15 +230,22 @@ class TestCandGroups(CheckCandGroups):
 			1, probs, size=(n,p)
 		)
 		X = np.random.randn(n,p)
+		sample_weights = np.random.uniform(size=n) 
+		sample_weights = sample_weights / sample_weights.sum()
 		# get all groups
-		cgs = create_groups.all_cand_groups(
-			samples=samples, 
-			X=X,
-			prenarrow=False,
-			max_pep=1
-		)
-		# Check that no groups are repeated
-		self.check_unique(cgs)
+		for sweights in [None, sample_weights]:
+			cgs = create_groups.all_cand_groups(
+				samples=samples, 
+				X=X,
+				prenarrow=False,
+				max_pep=0.5,
+				sample_weights=sweights,
+			)
+			# Check that no groups are repeated
+			self.check_unique(cgs)
+			self.check_discrete_cg_peps_correct(
+				samples=samples, cand_groups=cgs, sample_weights=sweights,
+			)
 		# check if there are issues with no nonnulls
 		samples = np.zeros((n, p))
 		cgs = create_groups.all_cand_groups(
@@ -254,6 +278,9 @@ class TestCandGroups(CheckCandGroups):
 				expect in groups,
 				f"groups={expect} was unexpectedly not in groups={groups}"
 			)
+		self.check_discrete_cg_peps_correct(
+			samples=samples, cand_groups=cand_groups
+		)
 
 		# Check that max_peps works
 		for max_pep in [0.2, 0.4, 0.6, 0.8, 1]:
@@ -341,7 +368,37 @@ class TestCandGroups(CheckCandGroups):
 
 			)
 
+	def test_finemap_groups(self):
+		np.random.seed(123)
+		# Cand groups from finemap data
+		configfile = "test/finemap_test_data/seed0.config"
+		cand_groups = create_groups.finemap_groups(
+			configfile=configfile,
+			max_pep=0.25,
+			prefilter_thresholds=[0, 0.01],
+		)
+		# Check correctness of PEPs
+		df = pd.read_csv(
+			configfile,
+			delimiter=' ',
+			usecols=[1, 2]
+		)
+		df['config'] = df['config'].str.replace("rs", '').str.split(",")
 
+		# Check PEPs for the groups
+		np.random.shuffle(cand_groups)
+		for cg in cand_groups[0:min(len(cand_groups), 25)]:
+			group = list(cg.group)
+			flags = np.zeros(df.shape[0])
+			for j in group:
+				flags = (flags) | (df['config'].apply(lambda x: str(j) in x))
+			expected = 1 - df.loc[flags, 'prob'].sum()
+			np.testing.assert_almost_equal(
+				expected,
+				cg.pep,
+				decimal=5,
+				err_msg=f"For group={group}, expected pep={expected}, observed={cg.pep}"
+			)
 
 class TestCtsPEPs(CheckCandGroups):
 	"""

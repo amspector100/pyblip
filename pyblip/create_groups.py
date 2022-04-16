@@ -1,6 +1,8 @@
 """ Functions for creating candidate groups from posterior samples"""
+import time
 import copy
 import numpy as np
+from functools import reduce
 # Tree methods from scipy
 import scipy.cluster.hierarchy as hierarchy
 import scipy.spatial.distance as ssd
@@ -8,6 +10,7 @@ import networkx as nx
 from .ecc import edge_clique_cover
 
 MIN_PEP = 1e-15 # for numerical stability
+TOL = 1e-5
 
 class CandidateGroup():
 	"""
@@ -59,7 +62,8 @@ def all_cand_groups(
 	max_pep=0.25,
 	max_size=25,
 	prenarrow=True,
-	prefilter_thresholds=[0, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2]
+	prefilter_thresholds=[0, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2],
+	sample_weights=None,
 ):
 	"""
 	Creates many candidate groups by prefiltering locations at
@@ -87,14 +91,21 @@ def all_cand_groups(
 		as described in the paper. Defaults to False.
 	prefilter_thresholds : list
 		List of thresholds at which to prefilter the locations.
+	sample_weights : np.ndarray
+		An optional ``N``-shaped array weighting the posterior 
+		samples. Must sum to less than one.
 
 	Returns
 	-------
 	cand_groups : list
 		A list of ``CandidateGroup`` objects.
 	"""
+	N, p = samples.shape
 	samples = samples != 0
-	marg_pips = np.mean(samples, axis=0)
+	sample_weights = _process_sample_weights(
+		N=N, sample_weights=sample_weights
+	)
+	marg_pips = np.dot(sample_weights, samples)
 
 	# pre-filter features at various levels
 	all_groups = set()
@@ -110,7 +121,8 @@ def all_cand_groups(
 			q=q,
 			max_pep=max_pep,
 			max_size=max_size,
-			prenarrow=prenarrow
+			prenarrow=prenarrow,
+			sample_weights=sample_weights,
 		)
 		# Distance matrices
 		dms = [_samples_dist_matrix(samples[:, rel_features])]
@@ -122,6 +134,7 @@ def all_cand_groups(
 			max_pep=max_pep,
 			max_size=max_size,
 			filter_sequential=True,
+			sample_weights=sample_weights,
 		))
 		# Correct group indices and add to all cgs
 		groups = []
@@ -189,7 +202,7 @@ def susie_groups(
 		raise ValueError("When purity_threshold > 0, X must be provided.")
 	if k_threshold is None:
 		k_threshold = p + 1
-	elif purity_threshold > 0:
+	if purity_threshold > 0:
 		Sigma = np.corrcoef(X.T)
 
 	# Add groups discovered by susie
@@ -250,7 +263,8 @@ def sequential_groups(
 	q=0,
 	max_pep=0.25,
 	max_size=25,
-	prenarrow=False
+	prenarrow=False,
+	sample_weights=None,
 ):
 	"""
 	Calculates all sequential candidate groups below max_size.
@@ -274,13 +288,15 @@ def sequential_groups(
 	prenarrow : bool
 		If true, "prenarrows" the candidate groups
 		as described in the paper. Defaults to False.
+	sample_weights : np.ndarray
+		An optional ``N``-shaped array weighting the posterior 
+		samples. Must sum to less than one.
 
 	Returns
 	-------
 	cand_groups : list
 		A list of ``CandidateGroup`` objects.
 	"""
-
 	if samples is not None:
 		samples = samples != 0 # make boolean
 		N, p = samples.shape
@@ -288,11 +304,16 @@ def sequential_groups(
 		cum_incs = np.zeros((N, p+1))
 		cum_incs[:, 1:(p+1)] = np.cumsum(samples, axis=1)
 
+		# Parse sample_weights
+		sample_weights = _process_sample_weights(
+			N=N, sample_weights=sample_weights
+		)
+
 		# Compute successive groups of size m
 		all_PEPs = {}
 		for m in range(max_size):
 			cum_diffs = cum_incs[:, (m+1):(p+1)] - cum_incs[:, :int(p-m)]
-			all_PEPs[m] = np.mean(cum_diffs == 0, axis=0)
+			all_PEPs[m] = np.dot(sample_weights, cum_diffs == 0)
 	elif susie_alphas is not None:
 		L, p = susie_alphas.shape
 		max_size = min(max_size, p)
@@ -348,6 +369,7 @@ def hierarchical_groups(
 	max_pep=0.25,
 	max_size=25,
 	filter_sequential=False,
+	sample_weights=None,
 	**kwargs
 ):
 	"""
@@ -370,6 +392,9 @@ def hierarchical_groups(
 	filter_sequential : bool
 		If True, does not calculate PEPs for sequential (contiguous)
 		groups of variables to avoid duplicates.
+	sample_weights : np.ndarray
+		An optional ``N``-shaped array weighting the posterior 
+		samples. Must sum to less than one.
 
 	Returns
 	-------
@@ -377,11 +402,15 @@ def hierarchical_groups(
 		A list of ``CandidateGroup`` objects.
 	"""
 	# Initial values
-	p = samples.shape[1]
+	N, p = samples.shape
 	samples = samples != 0
+	sample_weights = _process_sample_weights(
+		N=N, sample_weights=sample_weights
+	)
+
 	# Trivial case where there is only one feature
 	if p == 1:
-		pep = 1 - samples.mean()
+		pep = 1 - np.dot(sample_weights, samples)
 		return [CandidateGroup(group=set([0]), pep=pep)]
 
 	# Estimate cov matrix from samples if 
@@ -403,13 +432,85 @@ def hierarchical_groups(
 			if np.max(group) - np.min(group) == gsize - 1:
 				continue
 
-		pep = 1 - np.any(samples[:, group], axis=1).mean()
+		pep = 1 - np.dot(sample_weights, np.any(samples[:, group], axis=1))
 		if pep < max_pep:
 			cand_groups.append(
 				CandidateGroup(group=set(group), pep=pep)
 			)
 
 	return cand_groups
+
+def finemap_groups(
+	configfile, p=None, **kwargs
+):
+	"""
+	Parameters
+	----------
+	configfile : str
+		Name of .conf file from FINEMAP.
+	p : int
+		Number of covariates in problem. Defaults to None
+		in which case this will be inferred from the .conf
+		file.
+	kwargs : dict
+		Dictionary of kwargs for the function
+		``all_cand_groups."
+
+	Returns
+	-------
+	cand_groups : list
+		A list of ``CandidateGroup`` objects.
+	"""
+	try:
+		import pandas as pd
+	except ImportError as e:
+		warnings.warn("pandas is required for finemap_groups")
+		raise e 
+
+	# Extract configuration output
+	time0 = time.time()
+	configdf = pd.read_csv(
+		configfile,
+		delimiter=' ',
+		usecols=[1,2]
+	)
+	nconfig = configdf.shape[0]
+	configdf['rank'] = np.arange(nconfig)
+	print(f"nconfig={nconfig}, maxrank={configdf['rank'].max()}")
+	configdf['config'] = configdf['config'].str.replace("rs", '')
+	configdf['config'] = configdf['config'].str.split(",").apply(
+		lambda x: [int(d) for d in x]
+	)
+	p = int(configdf['config'].apply(lambda x: np.max(x)).max()) + 1
+	print(f"Finished splitting and applying, took={time.time()-time0}")
+	configdf['config'] = configdf.apply(
+		lambda row: [p*row['rank'] + d for d in row['config']],
+		axis='columns'
+	)
+	print(f"Finished apply(row), took={time.time()-time0}")
+	inds = [x for l in configdf['config'].tolist() for x in l]
+	# Create inclusions
+	inclusions = np.zeros(p*nconfig, dtype=bool)
+	inclusions[inds] = 1
+	inclusions = inclusions.reshape(nconfig, p)
+	sample_weights = configdf['prob'].values
+	# create candidate groups
+	return all_cand_groups(
+		samples=inclusions,
+		sample_weights=sample_weights,
+		**kwargs
+	)
+
+def _process_sample_weights(N, sample_weights):
+	if sample_weights is None:
+		sample_weights = np.ones(N) / N
+	else:
+		sw_sum = np.sum(sample_weights)
+		if sw_sum > 1 + TOL:
+			raise ValueError(
+				f"sum(sample_weights)={sw_sum}, but they must sum to <= 1."
+			)
+	return sample_weights
 
 def _extract_groups(root, p):
 	"""
@@ -484,8 +585,6 @@ def _prefilter(cand_groups, max_pep):
 	return [
 		x for x in cand_groups if x.pep < max_pep
 	]
-
-
 
 def _elim_redundant_features(cand_groups):
 	"""
