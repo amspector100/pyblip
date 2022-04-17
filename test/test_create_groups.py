@@ -400,6 +400,13 @@ class TestCandGroups(CheckCandGroups):
 				err_msg=f"For group={group}, expected pep={expected}, observed={cg.pep}"
 			)
 
+		# Test that this works to aggregate multiple files
+		cand_groups = create_groups.finemap_groups(
+			configfile=[configfile, "test/finemap_test_data/seed1.config"],
+			max_pep=0.2,
+			prefilter_thresholds=[0.01],
+		)
+
 class TestCtsPEPs(CheckCandGroups):
 	"""
 	Tests creation of candidate groups when the set of locations

@@ -8,6 +8,7 @@ import scipy.cluster.hierarchy as hierarchy
 import scipy.spatial.distance as ssd
 import networkx as nx
 from .ecc import edge_clique_cover
+from .utilities import elapsed
 
 MIN_PEP = 1e-15 # for numerical stability
 TOL = 1e-5
@@ -441,17 +442,23 @@ def hierarchical_groups(
 	return cand_groups
 
 def finemap_groups(
-	configfile, p=None, **kwargs
+	configfile, p=None, verbose=True, **kwargs
 ):
 	"""
 	Parameters
 	----------
-	configfile : str
-		Name of .conf file from FINEMAP.
+	configfile : str or list
+		Name of .conf file from FINEMAP or a list of 
+		.conf files from FINEMAP. 
+		If a list of files, these should be outputs from
+		multiple iterations of FINEMAP applied to exactly
+		the same data, which improves error control. 
 	p : int
 		Number of covariates in problem. Defaults to None
 		in which case this will be inferred from the .conf
 		file.
+	verbose : True
+		If True, gives progress reports.
 	kwargs : dict
 		Dictionary of kwargs for the function
 		``all_cand_groups."
@@ -466,34 +473,54 @@ def finemap_groups(
 	except ImportError as e:
 		warnings.warn("pandas is required for finemap_groups")
 		raise e 
+	if isinstance(configfile, str):
+		configfile = [configfile]
 
 	# Extract configuration output
-	configdf = pd.read_csv(
-		configfile,
-		delimiter=' ',
-		usecols=[1,2]
-	)
-	nconfig = configdf.shape[0]
-	configdf['rank'] = np.arange(nconfig)
-	configdf['config'] = configdf['config'].str.replace("rs", '')
-	configdf['config'] = configdf['config'].str.split(",").apply(
-		lambda x: [int(d) for d in x]
-	)
-	p = int(configdf['config'].apply(lambda x: np.max(x)).max()) + 1
-	configdf['config'] = configdf.apply(
-		lambda row: [p*row['rank'] + d for d in row['config']],
-		axis='columns'
-	)
-	inds = [x for l in configdf['config'].tolist() for x in l]
-	# Create inclusions
-	inclusions = np.zeros(p*nconfig, dtype=bool)
-	inclusions[inds] = 1
-	inclusions = inclusions.reshape(nconfig, p)
-	sample_weights = configdf['prob'].values
+	time0 = time.time()
+	all_inclusions = []
+	all_sample_weights = []
+	for chain, cfile in enumerate(configfile):
+		configdf = pd.read_csv(
+			cfile,
+			delimiter=' ',
+			usecols=[1,2]
+		)
+		nconfig = configdf.shape[0]
+		configdf['rank'] = np.arange(nconfig)
+		# print(f"nconfig={nconfig}, maxrank={configdf['rank'].max()}")
+		configdf['config'] = configdf['config'].str.replace("rs", '')
+		configdf['config'] = configdf['config'].str.split(",").apply(
+			lambda x: [int(d) for d in x]
+		)
+		if p is None:
+			p = int(configdf['config'].apply(lambda x: np.max(x)).max()) + 1
+		configdf['config'] = configdf.apply(
+			lambda row: [p*row['rank'] + d for d in row['config']],
+			axis='columns'
+		)
+		inds = [x for l in configdf['config'].tolist() for x in l]
+		# Create inclusions
+		inclusions = np.zeros(p*nconfig, dtype=bool)
+		inclusions[inds] = 1
+		inclusions = inclusions.reshape(nconfig, p)
+		if verbose:
+			msg = f"Finished processing .conf file for chain {chain+1}/{len(configfile)}"
+			msg += f", took {elapsed(time0)}."
+			print(msg)
+		all_inclusions.append(inclusions)
+		sample_weights = configdf['prob'].values
+		all_sample_weights.append(sample_weights)
+
+	# Concatenate together
+	all_samples = np.concatenate(all_inclusions, axis=0)
+	all_sample_weights = np.concatenate(all_sample_weights, axis=0)
+	all_sample_weights = all_sample_weights / len(configfile)
+
 	# create candidate groups
 	return all_cand_groups(
-		samples=inclusions,
-		sample_weights=sample_weights,
+		samples=all_samples,
+		sample_weights=all_sample_weights,
 		**kwargs
 	)
 
