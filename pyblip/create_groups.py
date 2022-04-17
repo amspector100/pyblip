@@ -64,6 +64,7 @@ def all_cand_groups(
 	max_size=25,
 	prenarrow=True,
 	prefilter_thresholds=[0, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2],
+	hierarchical_cluster=True,
 	sample_weights=None,
 ):
 	"""
@@ -92,6 +93,9 @@ def all_cand_groups(
 		as described in the paper. Defaults to False.
 	prefilter_thresholds : list
 		List of thresholds at which to prefilter the locations.
+	hierarchical_cluster : bool
+		If True, creates candidate groups based on various
+		hierarchical clusterings.
 	sample_weights : np.ndarray
 		An optional ``N``-shaped array weighting the posterior 
 		samples. Must sum to less than one.
@@ -126,17 +130,18 @@ def all_cand_groups(
 			sample_weights=sample_weights,
 		)
 		# Distance matrices
-		dms = [_samples_dist_matrix(samples[:, rel_features])]
-		if X is not None:
-			dms.append(np.abs(1 - np.corrcoef(X[:, rel_features].T)))
-		cgs.extend(hierarchical_groups(
-			samples[:, rel_features],
-			dist_matrix=dms,
-			max_pep=max_pep,
-			max_size=max_size,
-			filter_sequential=True,
-			sample_weights=sample_weights,
-		))
+		if hierarchical_cluster:
+			dms = [_samples_dist_matrix(samples[:, rel_features])]
+			if X is not None:
+				dms.append(np.abs(1 - np.corrcoef(X[:, rel_features].T)))
+			cgs.extend(hierarchical_groups(
+				samples[:, rel_features],
+				dist_matrix=dms,
+				max_pep=max_pep,
+				max_size=max_size,
+				filter_sequential=True,
+				sample_weights=sample_weights,
+			))
 		# Correct group indices and add to all cgs
 		groups = []
 		for cg in cgs:
