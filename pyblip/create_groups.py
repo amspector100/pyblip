@@ -106,7 +106,8 @@ def all_cand_groups(
 		A list of ``CandidateGroup`` objects.
 	"""
 	N, p = samples.shape
-	samples = samples != 0
+	if samples.dtype != bool:
+		samples = (samples != 0).astype(bool)
 	sample_weights = _process_sample_weights(
 		N=N, sample_weights=sample_weights
 	)
@@ -304,7 +305,8 @@ def sequential_groups(
 		A list of ``CandidateGroup`` objects.
 	"""
 	if samples is not None:
-		samples = samples != 0 # make boolean
+		if samples.dtype != bool:
+			samples = (samples != 0).astype(bool) # make boolean
 		N, p = samples.shape
 		max_size = min(max_size, p)
 		cum_incs = np.zeros((N, p+1))
@@ -409,7 +411,8 @@ def hierarchical_groups(
 	"""
 	# Initial values
 	N, p = samples.shape
-	samples = samples != 0
+	if samples.dtype != bool:
+		samples = (samples != 0).astype(bool)
 	sample_weights = _process_sample_weights(
 		N=N, sample_weights=sample_weights
 	)
@@ -516,9 +519,14 @@ def finemap_groups(
 		all_inclusions.append(inclusions)
 		sample_weights = configdf['prob'].values
 		all_sample_weights.append(sample_weights)
+		del configdf
 
 	# Concatenate together
-	all_samples = np.concatenate(all_inclusions, axis=0)
+	if len(all_inclusions) > 1:
+		all_samples = np.concatenate(all_inclusions, axis=0, dtype=bool)
+		del all_inclusions
+	else:
+		all_samples = all_inclusions[0] # saves memory
 	all_sample_weights = np.concatenate(all_sample_weights, axis=0)
 	all_sample_weights = all_sample_weights / len(configfile)
 
