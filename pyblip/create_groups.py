@@ -529,6 +529,14 @@ def finemap_groups(
 		all_samples = all_inclusions[0] # saves memory
 	all_sample_weights = np.concatenate(all_sample_weights, axis=0)
 	all_sample_weights = all_sample_weights / len(configfile)
+	
+	# Upweight super low probability configurations for robustness
+	sw_sum = np.sum(all_sample_weights)
+	N = all_sample_weights.shape[0]
+	all_sample_weights[
+		all_sample_weights < 1 / (10*N)
+	] = 1 / (10 * N)
+	all_sample_weights = sw_sum * all_sample_weights / all_sample_weights.sum()
 
 	# create candidate groups
 	return all_cand_groups(
