@@ -79,6 +79,9 @@ class LinearSpikeSlab():
 		update_tau2=True,
 	):
 		self.X = X
+		# ensure contiguous
+		if not self.X.flags['C_CONTIGUOUS']:
+			self.X = np.ascontiguousarray(self.X)
 		self.y = y
 		# sigma2
 		self.sigma2 = sigma2

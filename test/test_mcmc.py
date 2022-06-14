@@ -133,6 +133,13 @@ class TestMCMC(unittest.TestCase):
 					err_msg=f"Average l2 norm of null coeffs is too large"
 				)
 
+	def test_contiguous_error(self):
+		# input non-contiguous x / y data
+		n, p = 100, 5
+		X = np.random.randn(p, n).T
+		y = np.random.randn(n)
+		pyblip.linear.LinearSpikeSlab(X=X, y=y).sample(N=5, burn=5)
+
 	def test_max_nnull_per_block(self):
 
 		# Sample data with high SNR and two nulls right next to each other
