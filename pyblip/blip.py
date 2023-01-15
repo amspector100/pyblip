@@ -40,6 +40,7 @@ def BLiP(
 	max_pep=0.25,
 	deterministic=True,
 	verbose=True,
+	solver_verbose=False,
 	perturb=True,
 	max_iters=100,
 	search_method='binary',
@@ -80,6 +81,8 @@ def BLiP(
 		If True, guarantees a deterministic solution. Defaults to True.
 	verbose : bool
 		If True, gives occasional progress reports.
+	solver_verbose : bool
+		If True, the underlying LP solver is verbose.
 	search_method : string
 		For FWER control, how to find the optimal parameter
 		for the LP. Either "none" or "binary." Defaults to "binary". 
@@ -246,7 +249,7 @@ def BLiP(
 
 	# Solve problem once if we do not need to search over v
 	if not binary_search:
-		problem.solve(solver=solver)
+		problem.solve(solver=solver, verbose=solver_verbose)
 		selections = x.value
 
 	# Solve FWER through binary search
@@ -259,7 +262,7 @@ def BLiP(
 			v_current = (v_upper + v_lower)/2
 			v_param.value = v_current 
 			# Solve
-			problem.solve(solver=solver, warm_start=True)
+			problem.solve(solver=solver, warm_start=True, verbose=solver_verbose)
 			selections = x.value
 
 			# Round selections---could do something smarter, TODO
@@ -280,7 +283,7 @@ def BLiP(
 
 		# Solve with v_lower for final solution
 		v_param.value = v_lower
-		problem.solve(solver=solver, warm_start=True)
+		problem.solve(solver=solver, warm_start=True, verbose=solver_verbose)
 		if problem.status == 'infeasible':
 			selections = np.zeros(ngroups)
 		else:
@@ -317,9 +320,11 @@ def BLiP_cts(
 	locs,
 	grid_sizes=DEFAULT_GRID_SIZES,
 	weight_fn=weight_fns.inverse_radius_weight,
+	extra_centers=None,
 	max_pep=0.25,
+	shape='circle',
 	min_blip_size=1500,
-	rescale=True,
+	verbose=True,
 	**kwargs
 ):
 	"""
@@ -336,12 +341,26 @@ def BLiP_cts(
 		between posterior iterations.)
 	grid_sizes : list or np.ndarray
 		List of grid sizes to split up the locations.
-	rescale : bool
-		If True, normalizes locs to ensure they are all between 0 and 1.
-		If ``rescale`` is False and this is not true, the function
-		will error.
+	weight_fn : string or function
+		A function mapping ``CandidateGroup`` objects to nonnegative weights.
+		This defines the power function. Defaults to ``inverse_radius``.
+	extra_centers : np.ndarray
+		A (ncenters, d)-dimensional array. At each resolution,
+		candidate groups will be computed with centers at these
+		locations.
+	max_pep : float
+		The maximum allowable PEP for output candidate groups.
+		Defaults to 0.25.
+	shape : string
+		One of ``square`` or ``circle``
+	min_blip_size : int
+		Combines connected components so all subproblems are of 
+		at least this size.
+	verbose : bool
+		If True (default), gives occasional status updates.
 	kwargs : dict
-		Additional arguments to pass to the underlying BLiP call.
+		Additional arguments to pass to the underlying BLiP call,
+		such as the error rate or nominal level.
 
 	Returns
 	-------
@@ -354,26 +373,25 @@ def BLiP_cts(
 	"""
 
 	# Normalize locations
-	d = locs.shape[2] # dimensionality
-	if rescale:
-		norm_locs, shifts, scales = create_groups_cts.normalize_locs(locs)
-	else:
-		minval = locs[~np.isnan(locs)].min()
-		maxval = locs[~np.isnan(locs)].max()
-		if minval < 0 or maxval > 1:
-			raise ValueError(f"rescale=False but locs are not between 0 and 1")
-		norm_locs = locs.copy() 
-		shifts = np.zeros(d)
-		scales = np.ones(d)
+	N, d = locs.shape # dimensionality
+	log_interval = int(max(1, np.around(N/10))) if verbose else None
 
 	# 1. Calculate filtered PEPs
 	peps = create_groups_cts.grid_peps(
-		locs=norm_locs, grid_sizes=grid_sizes, max_pep=max_pep
+		locs=locs,
+		grid_sizes=grid_sizes,
+		extra_centers=extra_centers,
+		max_pep=max_pep,
+		shape=shape,
+		log_interval=log_interval,
 	)
 
 	# 2. Calculate nodes, components, and so on
 	all_cand_groups, _ = create_groups_cts.grid_peps_to_cand_groups(
-		peps, min_blip_size=min_blip_size
+		peps,
+		min_blip_size=min_blip_size,
+		shape=shape, 
+		max_pep=max_pep,
 	)
 
 	# 3. Run BLiP
@@ -387,14 +405,13 @@ def BLiP_cts(
 		)
 		all_rej.extend(rej)
 
-	# 4. Renormalize locations
+	# 4. Make locations easier to interpret
 	for cand_group in all_rej:
 		center = np.zeros(d)
-		radius = cand_group.data.pop('radius') * scales + shifts
 		for k in range(d):
-			center[k] = cand_group.data.pop(f'dim{k}') * scales[k] + shifts[k]
+			center[k] = cand_group.data.pop(f'dim{k}')
 		cand_group.data['center'] = center
-		cand_group.data['radii'] = radius
+		cand_group.data['radii'] = np.ones(d) * radius
 
 	return all_rej
 

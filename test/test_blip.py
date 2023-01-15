@@ -198,6 +198,7 @@ class TestBLiP(CheckDetections):
 						detections = pyblip.blip.BLiP(
 							error=error,
 							q=q,
+							weight_fn=weight_fn,
 							search_method='binary',
 							max_pep=2*q,
 							deterministic=deterministic,

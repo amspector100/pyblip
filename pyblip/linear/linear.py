@@ -48,10 +48,10 @@ class LinearSpikeSlab():
 		If True, imposes an InverseGamma hyperprior on ``tau2``.
 		Else, the value of ``tau2`` is fixed.
 	tau2_a0 : float
-		If ``update_sigma2`` is True, ``tau2`` has an
+		If ``update_tau2`` is True, ``tau2`` has an
 		InvGamma(``tau2_a0``, ``tau2_b0``) hyperprior.
 	tau2_b0 : float
-		If ``update_sigma2`` is True, ``tau2`` has an
+		If ``update_tau2`` is True, ``tau2`` has an
 		InvGamma(``tau2_a0``, ``tau2_b0``) hyperprior.
 
 	Methods

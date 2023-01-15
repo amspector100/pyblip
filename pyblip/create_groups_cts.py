@@ -124,7 +124,7 @@ def grid_peps(
 		If True, the number of signals in each group is counted.
 	extra_centers : np.ndarray
 		A (ncenters, d)-dimensional array. At each resolution,
-		a candidate groups will be computed with centers at these
+		candidate groups will be computed with centers at these
 		locations.
 	shape : string
 		One of ``square`` or ``circle``

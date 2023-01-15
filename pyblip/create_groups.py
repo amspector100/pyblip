@@ -72,7 +72,7 @@ def all_cand_groups(
 		An ``(N, p)``-shaped array of posterior samples,
 		where a nonzero value indicates the presence of a signal.
 	X : np.array
-		The n x p deisgn matrix. Defaults to ``None.``
+		The n x p design matrix. Defaults to ``None.``
 		If provided, adds hierarchical groups based 
 		on a correlation cluster of X.
 	q : float
@@ -158,7 +158,7 @@ def susie_groups(
 	q : float
 		The level at which to control the error rate
 	X : np.array
-		The n x p deisgn matrix. Defaults to ``None.``
+		The n x p design matrix. Defaults to ``None.``
 		If provided, adds hierarchical groups based 
 		on a correlation cluster of X.
 	max_pep : float
@@ -189,7 +189,7 @@ def susie_groups(
 		raise ValueError("When purity_threshold > 0, X must be provided.")
 	if k_threshold is None:
 		k_threshold = p + 1
-	elif purity_threshold > 0:
+	if purity_threshold > 0:
 		Sigma = np.corrcoef(X.T)
 
 	# Add groups discovered by susie
