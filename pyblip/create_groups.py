@@ -62,7 +62,7 @@ def all_cand_groups(
 	prenarrow=True,
 	prefilter_thresholds=[0, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2],
 	min_purity=0.0,
-	C=None,
+	corr_matrix=None,
 ):
 	"""
 	Creates many candidate groups by prefiltering locations at
@@ -93,7 +93,7 @@ def all_cand_groups(
 	min_purity : float
 		Minimum acceptable absolute correlation within a candidate
 		group. Defaults to zero.
-	C : np.array
+	corr_matrix : np.array
 		Optional input; p x p correlation matrix. Only used if 
 		``X=None`` and ``min_purity > 0``.
 
@@ -144,7 +144,7 @@ def all_cand_groups(
 
 	# enforce min purity and return
 	all_cgs = filter_by_purity(
-		all_cgs, min_purity=min_purity, X=X, C=C
+		all_cgs, min_purity=min_purity, X=X, corr_matrix=corr_matrix
 	)
 	return all_cgs
 
@@ -159,7 +159,7 @@ def susie_groups(
 	purity_threshold=0.0,
 	k_threshold=None,
 	min_purity=0.0,
-	C=None,
+	corr_matrix=None,
 ):
 	"""
 	Creates candidate groups based on a SuSiE fit.
@@ -194,7 +194,7 @@ def susie_groups(
 	min_purity : float
 		Minimum acceptable absolute correlation within a candidate
 		group. Defaults to zero.
-	C : np.array
+	corr_matrix : np.array
 		Optional input; p x p correlation matrix. Only used if 
 		``X=None`` and ``min_purity > 0``.
 
@@ -265,7 +265,7 @@ def susie_groups(
 
 	# enforce min_purity and return
 	cand_groups = filter_by_purity(
-		cand_groups, min_purity=min_purity, X=X, C=C
+		cand_groups, min_purity=min_purity, X=X, corr_matrix=corr_matrix
 	)
 	return cand_groups
 
@@ -278,7 +278,7 @@ def sequential_groups(
 	prenarrow=False,
 	min_purity=0.0,
 	X=None,
-	C=None,
+	corr_matrix=None,
 ):
 	"""
 	Calculates all sequential candidate groups below max_size.
@@ -307,8 +307,8 @@ def sequential_groups(
 		group. Defaults to zero.
 	X : np.array
 		Optional input; n x p design matrix. Only used if 
-		``C=None`` and ``min_purity > 0``.
-	C : np.array
+		``corr_matrix=None`` and ``min_purity > 0``.
+	corr_matrix : np.array
 		Optional input; p x p correlation matrix. Only used if 
 		``X=None`` and ``min_purity > 0``.
 
@@ -379,7 +379,7 @@ def sequential_groups(
 
 	# Step 4: enforce min_purity and return
 	cand_groups = filter_by_purity(
-		cand_groups, min_purity=min_purity, X=X, C=C
+		cand_groups, min_purity=min_purity, X=X, corr_matrix=corr_matrix
 	)
 	return cand_groups
 
@@ -391,7 +391,7 @@ def hierarchical_groups(
 	filter_sequential=False,
 	min_purity=0,
 	X=None,
-	C=None,
+	corr_matrix=None,
 	**kwargs
 ):
 	"""
@@ -419,8 +419,8 @@ def hierarchical_groups(
 		group. Defaults to zero.
 	X : np.array
 		Optional input; n x p design matrix. Only used if 
-		``C=None`` and ``min_purity > 0``.
-	C : np.array
+		``corr_matrix=None`` and ``min_purity > 0``.
+	corr_matrix : np.array
 		Optional input; p x p correlation matrix. Only used if 
 		``X=None`` and ``min_purity > 0``.
 
@@ -464,7 +464,7 @@ def hierarchical_groups(
 
 	# enforce min_purity and return
 	cand_groups = filter_by_purity(
-		cand_groups, min_purity=min_purity, X=X, C=C
+		cand_groups, min_purity=min_purity, X=X, corr_matrix=corr_matrix
 	)
 	return cand_groups
 
@@ -542,7 +542,7 @@ def _prefilter(cand_groups, max_pep):
 		x for x in cand_groups if x.pep < max_pep
 	]
 
-def filter_by_purity(cand_groups, min_purity=0, C=None, X=None):
+def filter_by_purity(cand_groups, min_purity=0, corr_matrix=None, X=None):
 	"""
 	Filters candidate groups to only include groups
 	of features whose minimum absolute correlation
@@ -554,18 +554,18 @@ def filter_by_purity(cand_groups, min_purity=0, C=None, X=None):
 		A list of CandidateGroup objects.
 	min_purity : float
 		Minimum acceptable purity.
-	C : np.array
+	corr_matrix : np.array
 		p x p correlation matrix
 	X : np.array
 		n x p design matrix
 	"""
 	if min_purity == 0:
 		return cand_groups
-	if C is None and X is None:
-		raise ValueErorr("To filter by purity, either C (correlation matrix) or X (design matrix) must be provided.")
-	if C is None:
-		C = np.corrcoef(X.T)
-	absC = np.abs(C)
+	if corr_matrix is None and X is None:
+		raise ValueError("To filter by purity, either corr_matrix or X (design matrix) must be provided.")
+	if corr_matrix is None:
+		corr_matrix = np.corrcoef(X.T)
+	absC = np.abs(corr_matrix)
 
 	# loop through and compute purities
 	for cg in cand_groups:

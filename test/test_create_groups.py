@@ -253,7 +253,6 @@ class TestCandGroups(CheckCandGroups):
 			)
 		self.check_unique(cgs)
 
-
 		## check if there are issues with no nonnulls
 		samples = np.zeros((n, p))
 		cgs = create_groups.all_cand_groups(
