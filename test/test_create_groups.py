@@ -10,6 +10,13 @@ from collections import Counter
 from pyblip import create_groups, create_groups_cts
 from pyblip.create_groups import CandidateGroup
 
+def AR1_corr(p):
+	# create ar1 corr matrix 
+	inds = np.arange(p)
+	diffs = np.abs(inds.reshape(-1, 1) - inds.reshape(1, -1))
+	diffs = np.minimum(diffs, 50)
+	return np.exp(-1*diffs/25)
+
 class CheckCandGroups(unittest.TestCase):
 	"""
 	Helper functions for testing candidate groups.
@@ -212,7 +219,9 @@ class TestCandGroups(CheckCandGroups):
 		samples = np.random.binomial(
 			1, probs, size=(n,p)
 		)
-		X = np.random.randn(n,p)
+		# AR1 corr matrix
+		C = AR1_corr(p)
+		X = np.random.randn(n,p) @ np.linalg.cholesky(C).T
 		# get all groups
 		cgs = create_groups.all_cand_groups(
 			samples=samples, 
@@ -222,7 +231,30 @@ class TestCandGroups(CheckCandGroups):
 		)
 		# Check that no groups are repeated
 		self.check_unique(cgs)
-		# check if there are issues with no nonnulls
+
+		# test that the min_purity arg works
+		min_purity = 0.8
+		hatC = np.abs(np.corrcoef(X.T))
+		cgs = create_groups.all_cand_groups(
+			samples=samples, 
+			X=X,
+			prenarrow=True,
+			max_pep=0.1,
+			min_purity=min_purity,
+		)
+		for cg in cgs:
+			if len(cg.group) == 1:
+				continue
+			group = np.array(list(cg.group))
+			purity = hatC[group][:, group].min()
+			self.assertTrue(
+				purity >= min_purity,
+				f"outputted cg with purity={purity} but min_purity={min_purity}"
+			)
+		self.check_unique(cgs)
+
+
+		## check if there are issues with no nonnulls
 		samples = np.zeros((n, p))
 		cgs = create_groups.all_cand_groups(
 			samples=samples, 

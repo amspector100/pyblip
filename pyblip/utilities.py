@@ -1,4 +1,5 @@
 import time
+from tqdm import tqdm
 import numpy as np
 from scipy import stats
 
@@ -8,6 +9,12 @@ from functools import partial
 
 def elapsed(time0):
     return np.around(time.time() - time0, 2)
+
+def vrange(n, verbose=False):
+	if not verbose:
+		return range(n)
+	else:
+		return tqdm(list(range(n)))
 
 def min_eigval(cov):
     """

@@ -6,6 +6,7 @@ import scipy.cluster.hierarchy as hierarchy
 import scipy.spatial.distance as ssd
 import networkx as nx
 from .ecc import edge_clique_cover
+from .utilities import vrange
 
 MIN_PEP = 1e-15 # for numerical stability
 
@@ -59,7 +60,9 @@ def all_cand_groups(
 	max_pep=0.25,
 	max_size=25,
 	prenarrow=True,
-	prefilter_thresholds=[0, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2]
+	prefilter_thresholds=[0, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2],
+	min_purity=0.0,
+	C=None,
 ):
 	"""
 	Creates many candidate groups by prefiltering locations at
@@ -79,7 +82,7 @@ def all_cand_groups(
 		The nominal level at which to control the error rate.
 	max_pep : float
 		The maximum posterior error probability allowed in
-		a candidate group. Default is 1.
+		a candidate group. Default is 0.25.
 	max_size : float
 		Maximum size of a group. Default is 25.
 	prenarrow : bool
@@ -87,6 +90,12 @@ def all_cand_groups(
 		as described in the paper. Defaults to False.
 	prefilter_thresholds : list
 		List of thresholds at which to prefilter the locations.
+	min_purity : float
+		Minimum acceptable absolute correlation within a candidate
+		group. Defaults to zero.
+	C : np.array
+		Optional input; p x p correlation matrix. Only used if 
+		``X=None`` and ``min_purity > 0``.
 
 	Returns
 	-------
@@ -133,6 +142,10 @@ def all_cand_groups(
 				groups.append(group)
 		all_groups = all_groups.union(groups)
 
+	# enforce min purity and return
+	all_cgs = filter_by_purity(
+		all_cgs, min_purity=min_purity, X=X, C=C
+	)
 	return all_cgs
 
 
@@ -145,6 +158,8 @@ def susie_groups(
 	prenarrow=False,
 	purity_threshold=0.0,
 	k_threshold=None,
+	min_purity=0.0,
+	C=None,
 ):
 	"""
 	Creates candidate groups based on a SuSiE fit.
@@ -176,6 +191,12 @@ def susie_groups(
 	k_threshold : float
 		When computing PIPs, ignores SuSiE iterations for which
 		the vanilla SuSiE CS exceeds this size.
+	min_purity : float
+		Minimum acceptable absolute correlation within a candidate
+		group. Defaults to zero.
+	C : np.array
+		Optional input; p x p correlation matrix. Only used if 
+		``X=None`` and ``min_purity > 0``.
 
 	Returns
 	-------
@@ -242,6 +263,10 @@ def susie_groups(
 				group=set(g), pep=pep
 			))
 
+	# enforce min_purity and return
+	cand_groups = filter_by_purity(
+		cand_groups, min_purity=min_purity, X=X, C=C
+	)
 	return cand_groups
 
 def sequential_groups(
@@ -250,7 +275,10 @@ def sequential_groups(
 	q=0,
 	max_pep=0.25,
 	max_size=25,
-	prenarrow=False
+	prenarrow=False,
+	min_purity=0.0,
+	X=None,
+	C=None,
 ):
 	"""
 	Calculates all sequential candidate groups below max_size.
@@ -274,6 +302,15 @@ def sequential_groups(
 	prenarrow : bool
 		If true, "prenarrows" the candidate groups
 		as described in the paper. Defaults to False.
+	min_purity : float
+		Minimum acceptable absolute correlation within a candidate
+		group. Defaults to zero.
+	X : np.array
+		Optional input; n x p design matrix. Only used if 
+		``C=None`` and ``min_purity > 0``.
+	C : np.array
+		Optional input; p x p correlation matrix. Only used if 
+		``X=None`` and ``min_purity > 0``.
 
 	Returns
 	-------
@@ -340,6 +377,10 @@ def sequential_groups(
 				group=group, pep=pep
 			))
 
+	# Step 4: enforce min_purity and return
+	cand_groups = filter_by_purity(
+		cand_groups, min_purity=min_purity, X=X, C=C
+	)
 	return cand_groups
 
 def hierarchical_groups(
@@ -348,6 +389,9 @@ def hierarchical_groups(
 	max_pep=0.25,
 	max_size=25,
 	filter_sequential=False,
+	min_purity=0,
+	X=None,
+	C=None,
 	**kwargs
 ):
 	"""
@@ -370,6 +414,15 @@ def hierarchical_groups(
 	filter_sequential : bool
 		If True, does not calculate PEPs for sequential (contiguous)
 		groups of variables to avoid duplicates.
+	min_purity : float
+		Minimum acceptable absolute correlation within a candidate
+		group. Defaults to zero.
+	X : np.array
+		Optional input; n x p design matrix. Only used if 
+		``C=None`` and ``min_purity > 0``.
+	C : np.array
+		Optional input; p x p correlation matrix. Only used if 
+		``X=None`` and ``min_purity > 0``.
 
 	Returns
 	-------
@@ -409,6 +462,10 @@ def hierarchical_groups(
 				CandidateGroup(group=set(group), pep=pep)
 			)
 
+	# enforce min_purity and return
+	cand_groups = filter_by_purity(
+		cand_groups, min_purity=min_purity, X=X, C=C
+	)
 	return cand_groups
 
 def _extract_groups(root, p):
@@ -485,6 +542,39 @@ def _prefilter(cand_groups, max_pep):
 		x for x in cand_groups if x.pep < max_pep
 	]
 
+def filter_by_purity(cand_groups, min_purity=0, C=None, X=None):
+	"""
+	Filters candidate groups to only include groups
+	of features whose minimum absolute correlation
+	is larger than ``min_purity``.
+
+	Parameters
+	----------
+	cand_groups : list
+		A list of CandidateGroup objects.
+	min_purity : float
+		Minimum acceptable purity.
+	C : np.array
+		p x p correlation matrix
+	X : np.array
+		n x p design matrix
+	"""
+	if min_purity == 0:
+		return cand_groups
+	if C is None and X is None:
+		raise ValueErorr("To filter by purity, either C (correlation matrix) or X (design matrix) must be provided.")
+	if C is None:
+		C = np.corrcoef(X.T)
+	absC = np.abs(C)
+
+	# loop through and compute purities
+	for cg in cand_groups:
+		group = np.array(list(cg.group))
+		if len(group) == 1:
+			cg.data['purity'] = 1
+		else:
+			cg.data['purity'] = absC[group][:, group].min()
+	return [cg for cg in cand_groups if cg.data['purity'] >= min_purity]
 
 
 def _elim_redundant_features(cand_groups):
@@ -523,7 +613,7 @@ def _elim_redundant_features(cand_groups):
 	return cand_groups, nrel
 
 
-def _ecc_reduction(cand_groups):
+def _ecc_reduction(cand_groups, verbose=False):
 	"""
 	Given a set of ``CandidateGroup``s with finite group
 	attributes, performs an ECC reduction to reduce
@@ -561,11 +651,12 @@ def _ecc_reduction(cand_groups):
 	# O(|G|^2) algorithm to find intersections
 	m = len(cand_groups)
 	G = np.eye(m).astype(bool)
-	for i, cg1 in enumerate(cand_groups):
+	for i in vrange(len(cand_groups), verbose):
+		cg1 = cand_groups[i]
 		g1 = cg1.data['blip-group']
 		for j in range(i):
 			g2 = cand_groups[j].data['blip-group']
-			if len(g1.intersection(g2)) > 0:
+			if not g1.isdisjoint(g2):
 				G[i, j] = True
 				G[j, i] = True
 
