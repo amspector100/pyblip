@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>pyblip.create_groups_cts &mdash; pyblip 0.1.4 documentation</title>
+  <title>pyblip.create_groups_cts &mdash; pyblip 0.4.2 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
@@ -29,7 +29,7 @@
             <a href="../../index.html" class="icon icon-home"> pyblip
           </a>
               <div class="version">
-                0.1.4
+                0.4.2
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -42,7 +42,11 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../installation.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usage.html">Tutorials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../apiref.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/pyblip">pyblip source</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/blipr">blipr source</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://arxiv.org/abs/2203.17208">BLiP paper (arXiv)</a></li>
 </ul>
 
         </div>
@@ -196,7 +200,7 @@
 <span class="sd">		If True, the number of signals in each group is counted.</span>
 <span class="sd">	extra_centers : np.ndarray</span>
 <span class="sd">		A (ncenters, d)-dimensional array. At each resolution,</span>
-<span class="sd">		a candidate groups will be computed with centers at these</span>
+<span class="sd">		candidate groups will be computed with centers at these</span>
 <span class="sd">		locations.</span>
 <span class="sd">	shape : string</span>
 <span class="sd">		One of ``square`` or ``circle``</span>
@@ -295,32 +299,15 @@
 
 	<span class="k">return</span> <span class="n">filtered_peps</span></div>
 
-<span class="c1"># def _postprocess_peps_count_signals(</span>
-<span class="c1"># 	filtered_peps,</span>
-<span class="c1"># 	max_pep=0.5,</span>
-<span class="c1"># 	cutoff=0.95,</span>
-<span class="c1"># ):</span>
-<span class="c1"># 	&quot;&quot;&quot;</span>
-<span class="c1"># 	Given the output of grid_peps with count_signals=True,</span>
-<span class="c1"># 	postprocesses the result. This is a helper function for</span>
-<span class="c1"># 	grid_peps_to_cand_groups.</span>
-<span class="c1"># 	&quot;&quot;&quot;</span>
-<span class="c1"># 	output = dict()</span>
-<span class="c1"># 	for key in filtered_peps.keys():</span>
-<span class="c1"># 		nsignals = [x for x in filtered_peps[key].keys() if x != &#39;pip&#39;]</span>
-<span class="c1"># 		props = [filtered_peps[key][n] for n in nsignals]</span>
-<span class="c1"># 		inds = np.argsort(props)</span>
-
-
 
 
 <div class="viewcode-block" id="grid_peps_to_cand_groups"><a class="viewcode-back" href="../../apiref.html#pyblip.create_groups_cts.grid_peps_to_cand_groups">[docs]</a><span class="k">def</span> <span class="nf">grid_peps_to_cand_groups</span><span class="p">(</span>
 	<span class="n">filtered_peps</span><span class="p">,</span> 
 	<span class="n">time0</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-	<span class="n">max_blip_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+	<span class="n">min_blip_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
 	<span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 	<span class="n">shape</span><span class="o">=</span><span class="s1">&#39;square&#39;</span><span class="p">,</span>
-	<span class="n">max_pep</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+	<span class="n">max_pep</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
 	<span class="n">min_pep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span>
 <span class="p">):</span>
 	<span class="sd">&quot;&quot;&quot;</span>
@@ -333,8 +320,9 @@
 <span class="sd">		An output of the ``grid_peps`` function.</span>
 <span class="sd">	time0 : float</span>
 <span class="sd">		The initial time the analysis started, useful for logging.</span>
-<span class="sd">	max_blip_size : int</span>
-<span class="sd">		Maximum size of a problem that can be fed into BLiP.</span>
+<span class="sd">	min_blip_size : int</span>
+<span class="sd">		Combines connected components so all subproblems are at least</span>
+<span class="sd">		this size.</span>
 <span class="sd">	verbose: bool</span>
 <span class="sd">		If True, will report progress over time. Default: False.</span>
 <span class="sd">	shape : string</span>
@@ -403,7 +391,7 @@
 	<span class="n">components</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">nx</span><span class="o">.</span><span class="n">algorithms</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">connected_components</span><span class="p">(</span><span class="n">G</span><span class="p">))</span>
 	<span class="n">merged_components</span> <span class="o">=</span> <span class="p">[[]]</span>
 	<span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="p">:</span>
-		<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">merged_components</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">max_blip_size</span><span class="p">:</span>
+		<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">merged_components</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">min_blip_size</span><span class="p">:</span>
 			<span class="n">merged_components</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
 		<span class="n">merged_components</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
 	<span class="k">del</span> <span class="n">G</span> <span class="c1"># save memory</span>

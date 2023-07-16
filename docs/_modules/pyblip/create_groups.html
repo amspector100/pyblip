@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>pyblip.create_groups &mdash; pyblip 1.0.0 documentation</title>
+  <title>pyblip.create_groups &mdash; pyblip 0.4.2 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
@@ -29,7 +29,7 @@
             <a href="../../index.html" class="icon icon-home"> pyblip
           </a>
               <div class="version">
-                1.0.0
+                0.4.2
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -44,9 +44,9 @@
 <li class="toctree-l1"><a class="reference internal" href="../../installation.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../usage.html">Tutorials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../apiref.html">API Reference</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://www.google.com/search?q=blip">BLiP paper</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/pyblip">pyblip GitHub</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/blipr">blipr GitHub</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/pyblip">pyblip source</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/amspector100/blipr">blipr source</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://arxiv.org/abs/2203.17208">BLiP paper (arXiv)</a></li>
 </ul>
 
         </div>
@@ -80,6 +80,9 @@
 <span class="c1"># Tree methods from scipy</span>
 <span class="kn">import</span> <span class="nn">scipy.cluster.hierarchy</span> <span class="k">as</span> <span class="nn">hierarchy</span>
 <span class="kn">import</span> <span class="nn">scipy.spatial.distance</span> <span class="k">as</span> <span class="nn">ssd</span>
+<span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
+<span class="kn">from</span> <span class="nn">.ecc</span> <span class="kn">import</span> <span class="n">edge_clique_cover</span>
+<span class="kn">from</span> <span class="nn">.utilities</span> <span class="kn">import</span> <span class="n">vrange</span>
 
 <span class="n">MIN_PEP</span> <span class="o">=</span> <span class="mf">1e-15</span> <span class="c1"># for numerical stability</span>
 
@@ -130,10 +133,12 @@
 	<span class="n">samples</span><span class="p">,</span>
 	<span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 	<span class="n">q</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-	<span class="n">max_pep</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+	<span class="n">max_pep</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
 	<span class="n">max_size</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
 	<span class="n">prenarrow</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-	<span class="n">prefilter_thresholds</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">]</span>
+	<span class="n">prefilter_thresholds</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">],</span>
+	<span class="n">min_purity</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+	<span class="n">corr_matrix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
 	<span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">	Creates many candidate groups by prefiltering locations at</span>
@@ -146,14 +151,14 @@
 <span class="sd">		An ``(N, p)``-shaped array of posterior samples,</span>
 <span class="sd">		where a nonzero value indicates the presence of a signal.</span>
 <span class="sd">	X : np.array</span>
-<span class="sd">		The n x p deisgn matrix. Defaults to ``None.``</span>
+<span class="sd">		The n x p design matrix. Defaults to ``None.``</span>
 <span class="sd">		If provided, adds hierarchical groups based </span>
 <span class="sd">		on a correlation cluster of X.</span>
 <span class="sd">	q : float</span>
 <span class="sd">		The nominal level at which to control the error rate.</span>
 <span class="sd">	max_pep : float</span>
 <span class="sd">		The maximum posterior error probability allowed in</span>
-<span class="sd">		a candidate group. Default is 1.</span>
+<span class="sd">		a candidate group. Default is 0.25.</span>
 <span class="sd">	max_size : float</span>
 <span class="sd">		Maximum size of a group. Default is 25.</span>
 <span class="sd">	prenarrow : bool</span>
@@ -161,6 +166,12 @@
 <span class="sd">		as described in the paper. Defaults to False.</span>
 <span class="sd">	prefilter_thresholds : list</span>
 <span class="sd">		List of thresholds at which to prefilter the locations.</span>
+<span class="sd">	min_purity : float</span>
+<span class="sd">		Minimum acceptable absolute correlation within a candidate</span>
+<span class="sd">		group. Defaults to zero.</span>
+<span class="sd">	corr_matrix : np.array</span>
+<span class="sd">		Optional input; p x p correlation matrix. Only used if </span>
+<span class="sd">		``X=None`` and ``min_purity &gt; 0``.</span>
 
 <span class="sd">	Returns</span>
 <span class="sd">	-------</span>
@@ -207,16 +218,24 @@
 				<span class="n">groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
 		<span class="n">all_groups</span> <span class="o">=</span> <span class="n">all_groups</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">groups</span><span class="p">)</span>
 
+	<span class="c1"># enforce min purity and return</span>
+	<span class="n">all_cgs</span> <span class="o">=</span> <span class="n">filter_by_purity</span><span class="p">(</span>
+		<span class="n">all_cgs</span><span class="p">,</span> <span class="n">min_purity</span><span class="o">=</span><span class="n">min_purity</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span> <span class="n">corr_matrix</span><span class="o">=</span><span class="n">corr_matrix</span>
+	<span class="p">)</span>
 	<span class="k">return</span> <span class="n">all_cgs</span></div>
 
 
 <div class="viewcode-block" id="susie_groups"><a class="viewcode-back" href="../../apiref.html#pyblip.create_groups.susie_groups">[docs]</a><span class="k">def</span> <span class="nf">susie_groups</span><span class="p">(</span>
 	<span class="n">alphas</span><span class="p">,</span>
-	<span class="n">X</span><span class="p">,</span>
 	<span class="n">q</span><span class="p">,</span>
-	<span class="n">max_pep</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+	<span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+	<span class="n">max_pep</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
 	<span class="n">max_size</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
-	<span class="n">prenarrow</span><span class="o">=</span><span class="kc">False</span>
+	<span class="n">prenarrow</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+	<span class="n">purity_threshold</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+	<span class="n">k_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+	<span class="n">min_purity</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+	<span class="n">corr_matrix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
 	<span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">	Creates candidate groups based on a SuSiE fit.</span>
@@ -227,12 +246,12 @@
 <span class="sd">		An ``(L, p)``-shaped matrix of alphas from a SuSiE object,</span>
 <span class="sd">		``L`` is the number of SuSiE iterations and ``p``</span>
 <span class="sd">		is the number of covariates.</span>
-<span class="sd">	X : np.array</span>
-<span class="sd">		The n x p deisgn matrix. Defaults to ``None.``</span>
-<span class="sd">		If provided, adds hierarchical groups based </span>
-<span class="sd">		on a correlation cluster of X.</span>
 <span class="sd">	q : float</span>
 <span class="sd">		The level at which to control the error rate</span>
+<span class="sd">	X : np.array</span>
+<span class="sd">		The n x p design matrix. Defaults to ``None.``</span>
+<span class="sd">		If provided, adds hierarchical groups based </span>
+<span class="sd">		on a correlation cluster of X.</span>
 <span class="sd">	max_pep : float</span>
 <span class="sd">		The maximum posterior error probability allowed in</span>
 <span class="sd">		a candidate group. Default is 1.</span>
@@ -241,6 +260,19 @@
 <span class="sd">	prenarrow : bool</span>
 <span class="sd">		If true, &quot;prenarrows&quot; the candidate groups</span>
 <span class="sd">		as described in the paper. Defaults to False.</span>
+<span class="sd">	purity_threshold : float</span>
+<span class="sd">		When computing PIPs, ignores SuSiE iterations which</span>
+<span class="sd">		do not pass this purity threshold, as in the original</span>
+<span class="sd">		SusiE paper.</span>
+<span class="sd">	k_threshold : float</span>
+<span class="sd">		When computing PIPs, ignores SuSiE iterations for which</span>
+<span class="sd">		the vanilla SuSiE CS exceeds this size.</span>
+<span class="sd">	min_purity : float</span>
+<span class="sd">		Minimum acceptable absolute correlation within a candidate</span>
+<span class="sd">		group. Defaults to zero.</span>
+<span class="sd">	corr_matrix : np.array</span>
+<span class="sd">		Optional input; p x p correlation matrix. Only used if </span>
+<span class="sd">		``X=None`` and ``min_purity &gt; 0``.</span>
 
 <span class="sd">	Returns</span>
 <span class="sd">	-------</span>
@@ -249,7 +281,37 @@
 <span class="sd">	&quot;&quot;&quot;</span>
 	<span class="n">L</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">alphas</span><span class="o">.</span><span class="n">shape</span>
 	<span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-	<span class="c1"># Start with sequential groups</span>
+	<span class="c1"># Preprocessing</span>
+	<span class="k">if</span> <span class="n">purity_threshold</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">X</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+		<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;When purity_threshold &gt; 0, X must be provided.&quot;</span><span class="p">)</span>
+	<span class="k">if</span> <span class="n">k_threshold</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+		<span class="n">k_threshold</span> <span class="o">=</span> <span class="n">p</span> <span class="o">+</span> <span class="mi">1</span>
+	<span class="k">if</span> <span class="n">purity_threshold</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+		<span class="n">Sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+	<span class="c1"># Add groups discovered by susie</span>
+	<span class="n">Linds</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="n">groups_to_add</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
+		<span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">alphas</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">:</span>
+			<span class="n">inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="o">*</span><span class="n">alphas</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+			<span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">alphas</span><span class="p">[</span><span class="n">j</span><span class="p">,</span><span class="n">inds</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">))</span>
+			<span class="n">group</span> <span class="o">=</span> <span class="n">inds</span><span class="p">[</span><span class="mi">0</span><span class="p">:(</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+			<span class="k">if</span> <span class="n">purity_threshold</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;=</span> <span class="n">k_threshold</span><span class="p">:</span>
+				<span class="n">mincorr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Sigma</span><span class="p">[</span><span class="n">group</span><span class="p">][:,</span> <span class="n">group</span><span class="p">]))</span>
+				<span class="k">if</span> <span class="n">mincorr</span> <span class="o">&gt;</span> <span class="n">purity_threshold</span><span class="p">:</span>
+					<span class="n">groups_to_add</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
+					<span class="n">Linds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
+			<span class="k">elif</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;=</span> <span class="n">k_threshold</span><span class="p">:</span>
+				<span class="n">groups_to_add</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
+				<span class="n">Linds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
+
+	<span class="c1"># Adjust alphas</span>
+	<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">Linds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+		<span class="k">return</span> <span class="p">[]</span>
+	<span class="n">alphas</span> <span class="o">=</span> <span class="n">alphas</span><span class="p">[</span><span class="n">Linds</span><span class="p">,</span> <span class="p">:]</span>
+
+	<span class="c1"># sequential groups</span>
 	<span class="n">cand_groups</span> <span class="o">=</span> <span class="n">sequential_groups</span><span class="p">(</span>
 		<span class="n">susie_alphas</span><span class="o">=</span><span class="n">alphas</span><span class="p">,</span> 
 		<span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span>
@@ -260,16 +322,7 @@
 	<span class="c1"># Add hierarchical groups</span>
 	<span class="k">if</span> <span class="n">X</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 		<span class="n">dist_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
-		<span class="n">groups_to_add</span> <span class="o">=</span> <span class="n">_dist_matrices_to_groups</span><span class="p">(</span><span class="n">dist_matrix</span><span class="p">)</span>
-	<span class="k">else</span><span class="p">:</span>
-		<span class="n">groups_to_add</span> <span class="o">=</span> <span class="p">[]</span>
-
-	<span class="c1"># Add groups discovered by susie</span>
-	<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
-		<span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">alphas</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">:</span>
-			<span class="n">inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="o">*</span><span class="n">alphas</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
-			<span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">alphas</span><span class="p">[</span><span class="n">j</span><span class="p">,</span><span class="n">inds</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">))</span>
-			<span class="n">groups_to_add</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inds</span><span class="p">[</span><span class="mi">0</span><span class="p">:(</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+		<span class="n">groups_to_add</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_dist_matrices_to_groups</span><span class="p">(</span><span class="n">dist_matrix</span><span class="p">))</span>
 
 	<span class="c1"># Add these to cand_groups</span>
 	<span class="n">groups_to_add</span> <span class="o">=</span> <span class="n">_dedup_list_of_lists</span><span class="p">(</span><span class="n">groups_to_add</span><span class="p">)</span>
@@ -286,15 +339,22 @@
 				<span class="n">group</span><span class="o">=</span><span class="nb">set</span><span class="p">(</span><span class="n">g</span><span class="p">),</span> <span class="n">pep</span><span class="o">=</span><span class="n">pep</span>
 			<span class="p">))</span>
 
+	<span class="c1"># enforce min_purity and return</span>
+	<span class="n">cand_groups</span> <span class="o">=</span> <span class="n">filter_by_purity</span><span class="p">(</span>
+		<span class="n">cand_groups</span><span class="p">,</span> <span class="n">min_purity</span><span class="o">=</span><span class="n">min_purity</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span> <span class="n">corr_matrix</span><span class="o">=</span><span class="n">corr_matrix</span>
+	<span class="p">)</span>
 	<span class="k">return</span> <span class="n">cand_groups</span></div>
 
 <div class="viewcode-block" id="sequential_groups"><a class="viewcode-back" href="../../apiref.html#pyblip.create_groups.sequential_groups">[docs]</a><span class="k">def</span> <span class="nf">sequential_groups</span><span class="p">(</span>
 	<span class="n">samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
 	<span class="n">susie_alphas</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 	<span class="n">q</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-	<span class="n">max_pep</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+	<span class="n">max_pep</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
 	<span class="n">max_size</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
-	<span class="n">prenarrow</span><span class="o">=</span><span class="kc">False</span>
+	<span class="n">prenarrow</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+	<span class="n">min_purity</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+	<span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+	<span class="n">corr_matrix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
 	<span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">	Calculates all sequential candidate groups below max_size.</span>
@@ -318,6 +378,15 @@
 <span class="sd">	prenarrow : bool</span>
 <span class="sd">		If true, &quot;prenarrows&quot; the candidate groups</span>
 <span class="sd">		as described in the paper. Defaults to False.</span>
+<span class="sd">	min_purity : float</span>
+<span class="sd">		Minimum acceptable absolute correlation within a candidate</span>
+<span class="sd">		group. Defaults to zero.</span>
+<span class="sd">	X : np.array</span>
+<span class="sd">		Optional input; n x p design matrix. Only used if </span>
+<span class="sd">		``corr_matrix=None`` and ``min_purity &gt; 0``.</span>
+<span class="sd">	corr_matrix : np.array</span>
+<span class="sd">		Optional input; p x p correlation matrix. Only used if </span>
+<span class="sd">		``X=None`` and ``min_purity &gt; 0``.</span>
 
 <span class="sd">	Returns</span>
 <span class="sd">	-------</span>
@@ -384,14 +453,21 @@
 				<span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">,</span> <span class="n">pep</span><span class="o">=</span><span class="n">pep</span>
 			<span class="p">))</span>
 
+	<span class="c1"># Step 4: enforce min_purity and return</span>
+	<span class="n">cand_groups</span> <span class="o">=</span> <span class="n">filter_by_purity</span><span class="p">(</span>
+		<span class="n">cand_groups</span><span class="p">,</span> <span class="n">min_purity</span><span class="o">=</span><span class="n">min_purity</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span> <span class="n">corr_matrix</span><span class="o">=</span><span class="n">corr_matrix</span>
+	<span class="p">)</span>
 	<span class="k">return</span> <span class="n">cand_groups</span></div>
 
 <div class="viewcode-block" id="hierarchical_groups"><a class="viewcode-back" href="../../apiref.html#pyblip.create_groups.hierarchical_groups">[docs]</a><span class="k">def</span> <span class="nf">hierarchical_groups</span><span class="p">(</span>
 	<span class="n">samples</span><span class="p">,</span>
 	<span class="n">dist_matrix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-	<span class="n">max_pep</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+	<span class="n">max_pep</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
 	<span class="n">max_size</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
 	<span class="n">filter_sequential</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+	<span class="n">min_purity</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+	<span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+	<span class="n">corr_matrix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 	<span class="o">**</span><span class="n">kwargs</span>
 <span class="p">):</span>
 	<span class="sd">&quot;&quot;&quot;</span>
@@ -414,6 +490,15 @@
 <span class="sd">	filter_sequential : bool</span>
 <span class="sd">		If True, does not calculate PEPs for sequential (contiguous)</span>
 <span class="sd">		groups of variables to avoid duplicates.</span>
+<span class="sd">	min_purity : float</span>
+<span class="sd">		Minimum acceptable absolute correlation within a candidate</span>
+<span class="sd">		group. Defaults to zero.</span>
+<span class="sd">	X : np.array</span>
+<span class="sd">		Optional input; n x p design matrix. Only used if </span>
+<span class="sd">		``corr_matrix=None`` and ``min_purity &gt; 0``.</span>
+<span class="sd">	corr_matrix : np.array</span>
+<span class="sd">		Optional input; p x p correlation matrix. Only used if </span>
+<span class="sd">		``X=None`` and ``min_purity &gt; 0``.</span>
 
 <span class="sd">	Returns</span>
 <span class="sd">	-------</span>
@@ -453,6 +538,10 @@
 				<span class="n">CandidateGroup</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="nb">set</span><span class="p">(</span><span class="n">group</span><span class="p">),</span> <span class="n">pep</span><span class="o">=</span><span class="n">pep</span><span class="p">)</span>
 			<span class="p">)</span>
 
+	<span class="c1"># enforce min_purity and return</span>
+	<span class="n">cand_groups</span> <span class="o">=</span> <span class="n">filter_by_purity</span><span class="p">(</span>
+		<span class="n">cand_groups</span><span class="p">,</span> <span class="n">min_purity</span><span class="o">=</span><span class="n">min_purity</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span> <span class="n">corr_matrix</span><span class="o">=</span><span class="n">corr_matrix</span>
+	<span class="p">)</span>
 	<span class="k">return</span> <span class="n">cand_groups</span></div>
 
 <span class="k">def</span> <span class="nf">_extract_groups</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
@@ -529,6 +618,39 @@
 		<span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cand_groups</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">pep</span> <span class="o">&lt;</span> <span class="n">max_pep</span>
 	<span class="p">]</span>
 
+<div class="viewcode-block" id="filter_by_purity"><a class="viewcode-back" href="../../apiref.html#pyblip.create_groups.filter_by_purity">[docs]</a><span class="k">def</span> <span class="nf">filter_by_purity</span><span class="p">(</span><span class="n">cand_groups</span><span class="p">,</span> <span class="n">min_purity</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">corr_matrix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">	Filters candidate groups to only include groups</span>
+<span class="sd">	of features whose minimum absolute correlation</span>
+<span class="sd">	is larger than ``min_purity``.</span>
+
+<span class="sd">	Parameters</span>
+<span class="sd">	----------</span>
+<span class="sd">	cand_groups : list</span>
+<span class="sd">		A list of CandidateGroup objects.</span>
+<span class="sd">	min_purity : float</span>
+<span class="sd">		Minimum acceptable purity.</span>
+<span class="sd">	corr_matrix : np.array</span>
+<span class="sd">		p x p correlation matrix</span>
+<span class="sd">	X : np.array</span>
+<span class="sd">		n x p design matrix</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="k">if</span> <span class="n">min_purity</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+		<span class="k">return</span> <span class="n">cand_groups</span>
+	<span class="k">if</span> <span class="n">corr_matrix</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">X</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+		<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;To filter by purity, either corr_matrix or X (design matrix) must be provided.&quot;</span><span class="p">)</span>
+	<span class="k">if</span> <span class="n">corr_matrix</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+		<span class="n">corr_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+	<span class="n">absC</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">corr_matrix</span><span class="p">)</span>
+
+	<span class="c1"># loop through and compute purities</span>
+	<span class="k">for</span> <span class="n">cg</span> <span class="ow">in</span> <span class="n">cand_groups</span><span class="p">:</span>
+		<span class="n">group</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">cg</span><span class="o">.</span><span class="n">group</span><span class="p">))</span>
+		<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">group</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+			<span class="n">cg</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;purity&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">cg</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;purity&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">absC</span><span class="p">[</span><span class="n">group</span><span class="p">][:,</span> <span class="n">group</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+	<span class="k">return</span> <span class="p">[</span><span class="n">cg</span> <span class="k">for</span> <span class="n">cg</span> <span class="ow">in</span> <span class="n">cand_groups</span> <span class="k">if</span> <span class="n">cg</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;purity&#39;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">min_purity</span><span class="p">]</span></div>
 
 
 <span class="k">def</span> <span class="nf">_elim_redundant_features</span><span class="p">(</span><span class="n">cand_groups</span><span class="p">):</span>
@@ -567,6 +689,66 @@
 	<span class="k">return</span> <span class="n">cand_groups</span><span class="p">,</span> <span class="n">nrel</span>
 
 
+<span class="k">def</span> <span class="nf">_ecc_reduction</span><span class="p">(</span><span class="n">cand_groups</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">	Given a set of ``CandidateGroup``s with finite group</span>
+<span class="sd">	attributes, performs an ECC reduction to reduce</span>
+<span class="sd">	the number of locations.</span>
+
+<span class="sd">	Parameters</span>
+<span class="sd">	----------</span>
+<span class="sd">	cand_groups : list</span>
+<span class="sd">		A list of CandidateGroup objects.</span>
+
+<span class="sd">	Returns</span>
+<span class="sd">	-------</span>
+<span class="sd">	cand_groups : list</span>
+<span class="sd">		The same list of CandidateGroup objects but with</span>
+<span class="sd">		an updated &#39;blip-group&#39; attribute.</span>
+<span class="sd">	nrel : int</span>
+<span class="sd">		Number of locations in reduced problem.</span>
+
+
+<span class="sd">	Notes</span>
+<span class="sd">	-----</span>
+<span class="sd">	This function is intended as a preprocessing step</span>
+<span class="sd">	for certain discrete problems. For continuous problems,</span>
+<span class="sd">	use the functions in the ``pyblip.create_groups_cts``</span>
+<span class="sd">	module.</span>
+
+<span class="sd">	It is not yet efficient and is largely used to reduce very</span>
+<span class="sd">	small problems to avoid solver error. </span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="n">hasblipgroup</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;blip-group&#39;</span> <span class="ow">in</span> <span class="n">cg</span><span class="o">.</span><span class="n">data</span> <span class="k">for</span> <span class="n">cg</span> <span class="ow">in</span> <span class="n">cand_groups</span><span class="p">]</span>
+	<span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">hasblipgroup</span><span class="p">)):</span>
+		<span class="k">for</span> <span class="n">cg</span> <span class="ow">in</span> <span class="n">cand_groups</span><span class="p">:</span>
+			<span class="n">cg</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;blip-group&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cg</span><span class="o">.</span><span class="n">group</span>
+
+	<span class="c1"># O(|G|^2) algorithm to find intersections</span>
+	<span class="n">m</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cand_groups</span><span class="p">)</span>
+	<span class="n">G</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+	<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">vrange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">cand_groups</span><span class="p">),</span> <span class="n">verbose</span><span class="p">):</span>
+		<span class="n">cg1</span> <span class="o">=</span> <span class="n">cand_groups</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+		<span class="n">g1</span> <span class="o">=</span> <span class="n">cg1</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;blip-group&#39;</span><span class="p">]</span>
+		<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+			<span class="n">g2</span> <span class="o">=</span> <span class="n">cand_groups</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;blip-group&#39;</span><span class="p">]</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">g1</span><span class="o">.</span><span class="n">isdisjoint</span><span class="p">(</span><span class="n">g2</span><span class="p">):</span>
+				<span class="n">G</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+				<span class="n">G</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+	<span class="c1"># edge clique cover</span>
+	<span class="n">G</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
+	<span class="n">cliques</span> <span class="o">=</span> <span class="n">edge_clique_cover</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
+	<span class="c1"># reset blip-group</span>
+	<span class="k">for</span> <span class="n">cg</span> <span class="ow">in</span> <span class="n">cand_groups</span><span class="p">:</span>
+		<span class="n">cg</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;blip-group&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="k">for</span> <span class="n">cliquenum</span><span class="p">,</span> <span class="n">clique</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cliques</span><span class="p">):</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">clique</span><span class="p">:</span>
+			<span class="n">cand_groups</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;blip-group&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cliquenum</span><span class="p">)</span>
+	<span class="k">for</span> <span class="n">cg</span> <span class="ow">in</span> <span class="n">cand_groups</span><span class="p">:</span>
+		<span class="n">cg</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;blip-group&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">cg</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;blip-group&#39;</span><span class="p">])</span>
+
+	<span class="k">return</span> <span class="n">cand_groups</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">cliques</span><span class="p">)</span>
 </pre></div>
 
            </div>

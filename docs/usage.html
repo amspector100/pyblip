@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tutorials &mdash; pyblip 0.3.0 documentation</title>
+  <title>Tutorials &mdash; pyblip 0.4.2 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
@@ -33,7 +33,7 @@
             <a href="index.html" class="icon icon-home"> pyblip
           </a>
               <div class="version">
-                0.3.0
+                0.4.2
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -53,7 +53,8 @@
 <li class="toctree-l3"><a class="reference internal" href="#2.2-Linear-Spike-and-Slab-model-+-BLiP">2.2 Linear Spike-and-Slab model + BLiP</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#2.3-SuSiE-+-BLiP">2.3 SuSiE + BLiP</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#2.4-Probit-spike-and-slab-model-+-BLiP">2.4 Probit spike-and-slab model + BLiP</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#2.5-Hierarchical-priors-to-ensure-error-control">2.5 Hierarchical priors to ensure error control</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#2.5-Purity-thresholding">2.5 Purity thresholding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#2.6-Hierarchical-priors-to-ensure-error-control">2.6 Hierarchical priors to ensure error control</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#3.-Changepoint-detection">3. Changepoint detection</a></li>
@@ -368,7 +369,7 @@ div.rendered_html tbody tr:hover {
 </style>
 <div class="section" id="Tutorials">
 <h1>Tutorials<a class="headerlink" href="#Tutorials" title="Permalink to this headline"></a></h1>
-<div class="nbinput nblast docutils container">
+<div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
@@ -381,8 +382,17 @@ div.rendered_html tbody tr:hover {
 <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 <span class="kn">import</span> <span class="nn">seaborn</span> <span class="k">as</span> <span class="nn">sns</span>
 <span class="kn">import</span> <span class="nn">pyblip</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">pyblip</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>
 </pre></div>
 </div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+0.4.2
+</pre></div></div>
 </div>
 <div class="section" id="1.-Introduction">
 <h2>1. Introduction<a class="headerlink" href="#1.-Introduction" title="Permalink to this headline"></a></h2>
@@ -436,7 +446,7 @@ discovery rate while also making these regions as narrow as possible, meaning th
 </div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step 2: Apply BLiP to detect signal variables</span>
@@ -457,13 +467,13 @@ discovery rate while also making these regions as narrow as possible, meaning th
 <div class="output_area docutils container">
 <div class="highlight"><pre>
 
-BLiP ran in 0.96 seconds.
+BLiP ran in 1.03 seconds.
 
 </pre></div></div>
 </div>
 <p>Since the data is synthetic, we can check whether the results from BLiP are accurate.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The true signal variables are </span><span class="si">{</span><span class="n">signal_variables</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
@@ -489,7 +499,7 @@ BLiP correctly detected a signal variable in {272}.
 BLiP correctly detected a signal variable in {306}.
 BLiP correctly detected a signal variable in {383}.
 BLiP correctly detected a signal variable in {426}.
-BLiP correctly detected a signal variable in {417, 421, 404, 407, 408, 409, 411, 412}.
+BLiP correctly detected a signal variable in {417, 421, 407, 408, 409, 412}.
 </pre></div></div>
 </div>
 <p>As we can see, sometimes BLiP will detect individual signal variables, but often this is not possible due to the high correlations among <span class="math notranslate nohighlight">\(X\)</span>. In the latter case, BLiP outputs larger clusters of variables.</p>
@@ -497,8 +507,8 @@ BLiP correctly detected a signal variable in {417, 421, 404, 407, 408, 409, 411,
 <div class="section" id="2.3-SuSiE-+-BLiP">
 <h3>2.3 SuSiE + BLiP<a class="headerlink" href="#2.3-SuSiE-+-BLiP" title="Permalink to this headline"></a></h3>
 <p>BLiP can apply on top of nearly any Bayesian model or algorithm, including variational algorithms. Here, we show how to apply BLiP on top of a SuSiE model <a class="reference external" href="https://www.biorxiv.org/content/10.1101/501114v4">(Wang et al, 2020)</a>. We do this in three steps: Step 1 is to fit SuSiE, Step 2 is to create candidate groups based off of the SuSiE outputs, and Step 3 is to apply BLiP.</p>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step 1: Fit SuSiE model</span>
@@ -528,17 +538,8 @@ BLiP correctly detected a signal variable in {417, 421, 404, 407, 408, 409, 411,
 </pre></div>
 </div>
 </div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-The rpy2.ipython extension is already loaded. To reload it, use:
-  %reload_ext rpy2.ipython
-</pre></div></div>
-</div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step 2: create candidate groups based off susie outputs</span>
@@ -566,13 +567,13 @@ The rpy2.ipython extension is already loaded. To reload it, use:
 <div class="output_area docutils container">
 <div class="highlight"><pre>
 
-Creating cand groups and running BLiP took 0.34 seconds.
+Creating cand groups and running BLiP took 0.36 seconds.
 
 </pre></div></div>
 </div>
 <p>We can compare the detections from SuSiE and SuSiE + BLiP. As we can see from the smaller group size, SuSiE + BLiP localizes signals more precisely than SuSiE alone. (All detections are true detections in this case.)</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="nb">set</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">susie_sets</span><span class="p">]</span>
@@ -580,7 +581,7 @@ Creating cand groups and running BLiP took 0.34 seconds.
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
@@ -589,7 +590,7 @@ Creating cand groups and running BLiP took 0.34 seconds.
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">group</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">detections</span><span class="p">]</span>
@@ -597,12 +598,12 @@ Creating cand groups and running BLiP took 0.34 seconds.
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-[{54}, {68}, {184}, {272}, {306}, {383}, {426}]
+[{54}, {68}, {184}, {272}, {306}, {426}, {382, 383}]
 </pre></div></div>
 </div>
 <p>As the number of signals increases, SuSiE + BLiP tends to have substantially higher power than SuSiE alone, as discussed in <a class="reference external" href="https://arxiv.org/abs/2203.17208">Spector and Janson (2022)</a>.</p>
@@ -611,18 +612,18 @@ Creating cand groups and running BLiP took 0.34 seconds.
 <h3>2.4 Probit spike-and-slab model + BLiP<a class="headerlink" href="#2.4-Probit-spike-and-slab-model-+-BLiP" title="Permalink to this headline"></a></h3>
 <p>We can run BLiP on top of nearly any regression model, including various models for binary responses. For example, suppose we only observe a binary indicator <span class="math notranslate nohighlight">\(Y^{\star}\)</span> as an outcome. We can apply BLiP directly on top of a sparse probit model in this setting, as shown below.</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[29]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step 1: fit probit model</span>
 <span class="n">ystar</span> <span class="o">=</span> <span class="n">y</span> <span class="o">&gt;</span> <span class="mi">0</span>
 <span class="n">pm</span> <span class="o">=</span> <span class="n">pyblip</span><span class="o">.</span><span class="n">probit</span><span class="o">.</span><span class="n">ProbitSpikeSlab</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">ystar</span><span class="p">)</span>
-<span class="n">pm</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">N</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">bsize</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">pm</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">N</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">bsize</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[30]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step 2: apply BLiP to posterior samples</span>
@@ -643,14 +644,13 @@ Creating cand groups and running BLiP took 0.34 seconds.
 <div class="output_area docutils container">
 <div class="highlight"><pre>
 
-BLiP ran in 0.58 seconds.
-Long-step dual simplex will be used
+BLiP ran in 0.91 seconds.
 
 </pre></div></div>
 </div>
 <p>Once again, we can check that BLiP makes (mostly) correct detections:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[32]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The true signal variables are </span><span class="si">{</span><span class="n">signal_variables</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
@@ -670,22 +670,72 @@ Long-step dual simplex will be used
 <div class="highlight"><pre>
 The true signal variables are [ 54  68 148 184 272 306 383 409 426 471].
 BLiP correctly detected a signal variable in {68}.
+BLiP correctly detected a signal variable in {263, 264, 265, 266, 267, 268, 269, 270, 271, 272}.
+BLiP correctly detected a signal variable in {180, 181, 183, 184, 185, 188}.
+BLiP correctly detected a signal variable in {306, 308, 309, 310, 313}.
+BLiP incorrectly detected a signal variable in {417, 418, 413, 421}.
+BLiP correctly detected a signal variable in {53, 54}.
 BLiP correctly detected a signal variable in {424, 426}.
-BLiP correctly detected a signal variable in {177, 180, 181, 184, 185}.
-BLiP correctly detected a signal variable in {263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274}.
-BLiP correctly detected a signal variable in {313, 306, 308}.
-BLiP incorrectly detected a signal variable in {58, 53}.
-BLiP correctly detected a signal variable in {59, 54}.
-BLiP correctly detected a signal variable in {398, 399, 400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420, 421, 422}.
 </pre></div></div>
 </div>
 </div>
-<div class="section" id="2.5-Hierarchical-priors-to-ensure-error-control">
-<h3>2.5 Hierarchical priors to ensure error control<a class="headerlink" href="#2.5-Hierarchical-priors-to-ensure-error-control" title="Permalink to this headline"></a></h3>
+<div class="section" id="2.5-Purity-thresholding">
+<h3>2.5 Purity thresholding<a class="headerlink" href="#2.5-Purity-thresholding" title="Permalink to this headline"></a></h3>
+<p>In some applications (e.g. genetic fine-mapping), it is common practice to only discover groups of variables whose purity exceeds (e.g.) <span class="math notranslate nohighlight">\(50\%\)</span>, where the “purity” of a group is defined as the minimum absolute correlation among its variables. To enforce this constraint, simply generate candidate groups and use the <code class="docutils literal notranslate"><span class="pre">min_purity</span></code> argument:</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cand_groups</span> <span class="o">=</span> <span class="n">pyblip</span><span class="o">.</span><span class="n">create_groups</span><span class="o">.</span><span class="n">all_cand_groups</span><span class="p">(</span>
+    <span class="n">samples</span><span class="o">=</span><span class="n">lm</span><span class="o">.</span><span class="n">betas</span><span class="p">,</span>
+    <span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span>
+    <span class="n">min_purity</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">detections</span> <span class="o">=</span> <span class="n">pyblip</span><span class="o">.</span><span class="n">blip</span><span class="o">.</span><span class="n">BLiP</span><span class="p">(</span>
+    <span class="n">cand_groups</span><span class="o">=</span><span class="n">cand_groups</span><span class="p">,</span>
+    <span class="n">q</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">error</span><span class="o">=</span><span class="s1">&#39;fdr&#39;</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<p>We can check that this only outputs regions whose purity exceeds <span class="math notranslate nohighlight">\(50\%\)</span>.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">hatSig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="c1"># correlation matrix</span>
+
+<span class="k">def</span> <span class="nf">purity</span><span class="p">(</span><span class="n">detection</span><span class="p">,</span> <span class="n">hatSig</span><span class="o">=</span><span class="n">hatSig</span><span class="p">):</span>
+    <span class="n">feature_ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">detection</span><span class="o">.</span><span class="n">group</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">hatSig</span><span class="p">[</span><span class="n">feature_ids</span><span class="p">][:,</span> <span class="n">feature_ids</span><span class="p">])</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">([</span><span class="n">purity</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">detections</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[1.0, 1.0, 1.0, 0.9999999999999998, 1.0, 0.9999999999999999, 0.9999999999999999, 0.8065878127309256]
+</pre></div></div>
+</div>
+</div>
+<div class="section" id="2.6-Hierarchical-priors-to-ensure-error-control">
+<h3>2.6 Hierarchical priors to ensure error control<a class="headerlink" href="#2.6-Hierarchical-priors-to-ensure-error-control" title="Permalink to this headline"></a></h3>
 <p>BLiP can wrap on top of nearly any Bayesian model, and in practice, it is fairly robust to some degree of model misspecification (see <a class="reference external" href="https://arxiv.org/abs/2203.17208">Spector and Janson (2022)</a> for simulations and a discussion of this issue). That said, if the underlying model is extremely poorly specified, BLiP will violate FDR control. For example, in the following problem, the prior indicates that <span class="math notranslate nohighlight">\(50\%\)</span> of the variables are signal variables, whereas in truth only <span class="math notranslate nohighlight">\(4\%\)</span> of
 the variables are signal variables.</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Sample from an obviously bad spike and slab model</span>
@@ -695,7 +745,7 @@ the variables are signal variables.</p>
 </div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># run blip: FDR control fails because the model is very badly mispecified</span>
@@ -719,7 +769,10 @@ the variables are signal variables.</p>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-BLiP problem has 2263 groups in contention, with 500 active features/locations
+BLiP problem has 2292 groups in contention, with 500 active features/locations
+LP had 431 non-integer solutions across 454 locations. Binarizing with deterministic=True.
+The false positive rate is 92.0% due to the mispecified model!
+
 </pre></div></div>
 </div>
 <p>To avoid this situation, we recommend using <strong>hierarchical priors</strong> on unknown nuisance parameters like the sparsity level in regression problems, with a conservative choice of hyperparameters. The samplers in <code class="docutils literal notranslate"><span class="pre">pyblip</span></code> automatically use relatively uninformative hierarchical priors which empirically control the FDR well in a variety of settings. For example, in the previous examples, the prior was quite uninformative, and BLiP still performed quite well.</p>
@@ -730,7 +783,7 @@ BLiP problem has 2263 groups in contention, with 500 active features/locations
 <h2>3. Changepoint detection<a class="headerlink" href="#3.-Changepoint-detection" title="Permalink to this headline"></a></h2>
 <p>Given time series data <span class="math notranslate nohighlight">\((Y_1, \dots, Y_T)\)</span>, suppose we are interested in looking for “change-points”, or times where the stochastic process changes. Often, we can tell that a process has changed, but we cannot discern exactly when it has changed because each observation <span class="math notranslate nohighlight">\(\{Y_t\}\)</span> is noisy. The following synthetic dataset gives one example of this:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[47]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Changepoint series with 5 data-points</span>
@@ -752,35 +805,26 @@ BLiP problem has 2263 groups in contention, with 500 active features/locations
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
-<img alt="_images/usage_37_0.png" src="_images/usage_37_0.png" />
+<img alt="_images/usage_43_0.png" src="_images/usage_43_0.png" />
 </div>
 </div>
 <p>To detect regions where the true mean of <span class="math notranslate nohighlight">\(Y\)</span> has changed, we can call the function <code class="docutils literal notranslate"><span class="pre">detect</span> <span class="pre">changepoints</span></code> which will fit a spike-and-slab changepoint model and apply BLiP on top of it. This only takes one line!</p>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[49]:
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">detections</span> <span class="o">=</span> <span class="n">pyblip</span><span class="o">.</span><span class="n">changepoint</span><span class="o">.</span><span class="n">detect_changepoints</span><span class="p">(</span>
     <span class="n">Y</span><span class="o">=</span><span class="n">Y</span><span class="p">,</span>
     <span class="n">q</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
-    <span class="n">sample_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">N</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">bsize</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span> <span class="c1"># kwargs for the sampler</span>
+    <span class="n">sample_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">N</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">bsize</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span> <span class="c1"># kwargs for the sampler</span>
     <span class="n">blip_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">max_pep</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="c1"># kwargs for BLiP</span>
 <span class="p">)</span>
 </pre></div>
 </div>
 </div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-BLiP ran in 11.71.
-Long-step dual simplex will be used
-</pre></div></div>
-</div>
 <p>Below, we plot these change-points on top of the raw data and the ground truth. Each output from BLiP is a region which contains a change point with high confidence. The detected regions are shaded in the plot: true detections are in green, and false detections are in orange.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[66]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Plot data-points and ground truth</span>
@@ -824,7 +868,7 @@ Long-step dual simplex will be used
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
-<img alt="_images/usage_41_0.png" src="_images/usage_41_0.png" />
+<img alt="_images/usage_47_0.png" src="_images/usage_47_0.png" />
 </div>
 </div>
 <p>As we can see, in this example, BLiP does a pretty good job both detecting change-points and quantifying our uncertainty in their locations. The vertical, thin green bars are change-points which have been perfectly localized.</p>
@@ -835,7 +879,7 @@ Long-step dual simplex will be used
 <a class="reference external" href="https://arxiv.org/pdf/2102.02409.pdf">Liu et. al (2021)</a>.</p>
 <p>To start, we load the simulated <span class="math notranslate nohighlight">\(20x20\)</span> image data, which was generated using code from <a class="reference external" href="https://arxiv.org/pdf/2102.02409.pdf">Liu et. al (2021)</a>.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Load simulated image data</span>
@@ -871,13 +915,13 @@ Long-step dual simplex will be used
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
-<img alt="_images/usage_46_0.png" src="_images/usage_46_0.png" />
+<img alt="_images/usage_52_0.png" src="_images/usage_52_0.png" />
 </div>
 </div>
-<p>Next, we load the posterior samples from the pretrained StarNet model. See <a class="reference external" href="https://github.com/Runjing-Liu120/DeblendingStarfields">here</a> or <a class="reference external" href="https://github.com/amspector100/DeblendingStarfields%5D">here</a> for examples of how to fit pretrained StarNet models.</p>
+<p>Next, we load the posterior samples from the pretrained StarNet model. See <a class="reference external" href="https://github.com/Runjing-Liu120/DeblendingStarfields">here</a> or <a class="reference external" href="https://github.com/amspector100/DeblendingStarfields">here</a> for examples of how to fit pretrained StarNet models.</p>
 <p>Note that the posterior samples are an <span class="math notranslate nohighlight">\((N, n_{\mathrm{source}}, d)\)</span>-shaped array, where <span class="math notranslate nohighlight">\(N\)</span> is the number of posterior samples and <span class="math notranslate nohighlight">\(d=2\)</span> is the dimension of the image. If <code class="docutils literal notranslate"><span class="pre">post_samples[i,</span> <span class="pre">j]</span> <span class="pre">=</span> <span class="pre">(x,</span> <span class="pre">y)</span></code>, this means that the <span class="math notranslate nohighlight">\(i\)</span>th posterior sample has asserted that there is a point-source at location <span class="math notranslate nohighlight">\((x,y)\)</span>. Since there may be different numbers of point-sources per iteration, NaNs are ignored. See API reference for more details on the data input format.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Load posterior samples from StarNet</span>
@@ -889,7 +933,7 @@ Long-step dual simplex will be used
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
@@ -904,7 +948,7 @@ array([[0.07279399, 0.34460315],
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># In contrast, in the 8th iteration, there were five estimated sources.</span>
@@ -913,7 +957,7 @@ array([[0.07279399, 0.34460315],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
@@ -928,26 +972,34 @@ array([[0.07735128, 0.33859724],
 </pre></div></div>
 </div>
 <p>Given these posterior samples, applying BLiP is as easy as calling the <code class="docutils literal notranslate"><span class="pre">BLiP_cts</span></code> function. Note that <code class="docutils literal notranslate"><span class="pre">BLiP_cts</span></code> is useful in problems where the set of possible signal locations is continuous, for example in this problem, where a point-source could take any location in <span class="math notranslate nohighlight">\([0,20]^2\)</span>.</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># the grid sizes determine the resolutions at which BLiP is applied</span>
-<span class="n">grid_sizes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">around</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="mi">25</span><span class="p">)))</span>
+<span class="n">grid_sizes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">around</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">50</span><span class="p">)))</span>
 <span class="n">detections</span> <span class="o">=</span> <span class="n">pyblip</span><span class="o">.</span><span class="n">blip</span><span class="o">.</span><span class="n">BLiP_cts</span><span class="p">(</span>
     <span class="n">post_samples</span><span class="p">,</span>
     <span class="n">error</span><span class="o">=</span><span class="s1">&#39;fdr&#39;</span><span class="p">,</span>
     <span class="n">q</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
     <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="n">rescale</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="n">grid_sizes</span><span class="o">=</span><span class="n">grid_sizes</span>
+    <span class="n">grid_sizes</span><span class="o">=</span><span class="n">grid_sizes</span><span class="p">,</span>
+    <span class="n">deterministic</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
 </div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+BLiP problem has 44 groups in contention, with 9 active features/locations
+</pre></div></div>
+</div>
 <p>We can plot these detections on top of the image to see the detections.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[43]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">matplotlib.patches</span> <span class="k">as</span> <span class="nn">patches</span>
@@ -956,7 +1008,7 @@ array([[0.07735128, 0.33859724],
 <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">detections</span><span class="p">):</span>
     <span class="n">center</span> <span class="o">=</span> <span class="n">npixels</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">]</span>
      <span class="c1"># since rescale=False all radii are the same</span>
-    <span class="n">radius</span> <span class="o">=</span> <span class="n">npixels</span><span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;radii&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">radius</span> <span class="o">=</span> <span class="n">npixels</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;radii&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
     <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">label</span> <span class="o">=</span> <span class="s1">&#39;BLiP detection&#39;</span>
     <span class="k">else</span><span class="p">:</span>
@@ -980,7 +1032,7 @@ array([[0.07735128, 0.33859724],
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
-<img alt="_images/usage_53_0.png" src="_images/usage_53_0.png" />
+<img alt="_images/usage_59_0.png" src="_images/usage_59_0.png" />
 </div>
 </div>
 <p>As we can see, BLiP makes four true detections at various resolutions based on the posterior samples.</p>
@@ -1003,7 +1055,7 @@ Since there may be different numbers of point-sources per iteration, NaNs are ig
 <h3>5.3 Advanced usage: directly specifying candidate groups<a class="headerlink" href="#5.3-Advanced-usage:-directly-specifying-candidate-groups" title="Permalink to this headline"></a></h3>
 <p>A <code class="docutils literal notranslate"><span class="pre">CandidateGroup</span></code> object represents a subset of the locations which could potentially contain a signal. For example, in variable selection problems, each <code class="docutils literal notranslate"><span class="pre">CandidateGroup</span></code> represents a subset of the covariates. Alternatively, in the following example, each <code class="docutils literal notranslate"><span class="pre">CandidateGroup</span></code> represents three circular regions of the globe.</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[82]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[27]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pyblip.create_groups</span> <span class="kn">import</span> <span class="n">CandidateGroup</span>
@@ -1050,7 +1102,7 @@ Since there may be different numbers of point-sources per iteration, NaNs are ig
 </ol>
 <p>One can directly apply BLiP on top of a list of candidate groups.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[94]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[28]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">detections</span> <span class="o">=</span> <span class="n">pyblip</span><span class="o">.</span><span class="n">blip</span><span class="o">.</span><span class="n">BLiP</span><span class="p">(</span>
@@ -1070,7 +1122,6 @@ Since there may be different numbers of point-sources per iteration, NaNs are ig
 <div class="highlight"><pre>
 
 BLiP detected the candidate groups named: [&#39;big_region&#39;]
-Long-step dual simplex will be used
 </pre></div></div>
 </div>
 </div>
