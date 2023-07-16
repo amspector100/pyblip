@@ -372,8 +372,7 @@ def BLiP_cts(
 		Only returned if ``return_problem_status=True``.	
 	"""
 
-	# Normalize locations
-	N, d = locs.shape # dimensionality
+	N, num_disc, d = locs.shape # dimensionality
 	log_interval = int(max(1, np.around(N/10))) if verbose else None
 
 	# 1. Calculate filtered PEPs
@@ -411,7 +410,7 @@ def BLiP_cts(
 		for k in range(d):
 			center[k] = cand_group.data.pop(f'dim{k}')
 		cand_group.data['center'] = center
-		cand_group.data['radii'] = np.ones(d) * radius
+		cand_group.data['radii'] = np.ones(d) * cand_group.data['radius']
 
 	return all_rej
 

@@ -83,6 +83,18 @@ class CheckDetections(unittest.TestCase):
 			)
 			all_locs = all_locs.union(group)
 
+	def check_disjoint_cts(self, detections):
+		centers = [x.data['center'] for x in detections]
+		radii = [x.data['radius'] for x in detections]
+		for i in range(len(detections)):
+			for j in range(i):
+				dist = np.sqrt(np.sum((centers[i] - centers[j])**2))
+				self.assertTrue(
+					dist > radii[i] + radii[j] - 1e-5,
+					f"detections={detections} has nonzero intersection for centers={centers[i]}, {centers[j]}"
+				)
+
+
 class TestBinarizeSelections(CheckDetections):
 
 	def test_pfer_simple(self):
@@ -316,7 +328,29 @@ class TestBLiP(CheckDetections):
 			groups, expected, f"FDR solution for adversarial example #2 is wrong"
 		)
 
+class TestBLiP_cts(CheckDetections):
 
+	def test_disjoint_output(self):
+		N, max_ndisc = 200, 50
+		post_samples = np.random.randn(N, max_ndisc, 2)
+		for i in range(N):
+			num_disc = np.random.choice(np.arange(max_ndisc + 1))
+			post_samples[i, num_disc:] = np.nan
+		post_samples, _, _ = pyblip.create_groups_cts.normalize_locs(post_samples)
+
+		grid_sizes = np.unique(np.around(np.logspace(np.log10(2), 4, 50)))
+		detections = pyblip.blip.BLiP_cts(
+			post_samples,
+			error='fdr',
+			q=0.1, 
+			shape='circle',
+			verbose=False,
+			grid_sizes=grid_sizes,
+			deterministic=True,
+		)
+		self.check_disjoint(detections)
+		self.check_disjoint_cts(detections)
+		
 
 if __name__ == "__main__":
 	# Run all tests---useful if using cprofilev
